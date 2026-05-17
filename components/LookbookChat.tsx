@@ -7,6 +7,7 @@ import { Heart, ShoppingBag, Check } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { products as allProducts } from "@/data/products";
+import { catalogueProducts } from "@/data/catalogue";
 import { Product } from "@/types";
 
 /* ── Palette ─────────────────────────────────────────────────────── */
@@ -130,7 +131,15 @@ interface MultiData {
   next_question?: string;
 }
 
-type ParsedResponse = ChatData | OutfitData | MultiData;
+interface ProductsData {
+  type: "products";
+  message: string;
+  category: string;
+  gender?: string;
+  next_question?: string;
+}
+
+type ParsedResponse = ChatData | OutfitData | MultiData | ProductsData;
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -138,21 +147,44 @@ interface ChatMessage {
   parsed?: ParsedResponse | null;
 }
 
+/* ── Helper: filter catalogue by chat category string ─────────── */
+function chatCategoryFilter(cat: string, gender: string) {
+  return catalogueProducts.filter(p => {
+    const pc = p.category.toLowerCase();
+    const catMatch = (() => {
+      switch (cat.toLowerCase()) {
+        case "tops":        return pc === "t-shirts" || pc === "tops";
+        case "bottoms":     return pc === "bottoms" || pc === "skirts" || pc === "denims";
+        case "dresses":     return pc === "dresses";
+        case "footwear":    return pc === "footwear";
+        case "accessories": return pc === "accessories";
+        default:            return true;
+      }
+    })();
+    const genderMatch = gender === "all" || gender === "" || p.gender === gender || p.gender === "unisex";
+    return catMatch && genderMatch;
+  });
+}
+
 /* ── Helper: build a Product from OutfitItem + optional DB lookup ── */
 function buildProduct(item: OutfitItem, section: string): Product {
-  return allProducts.find(p => p.id === item.sku) ?? {
-    id: item.sku,
-    name: item.name,
-    brand: "Burnt Toast",
-    price: item.price,
-    image: item.img ?? "",
-    category: section === "top" ? "Tops" : "Bottoms",
-    tags: [],
-    rating: 0,
-    reviews: 0,
-    sizes: ["XS", "S", "M", "L", "XL"],
-    description: item.note,
-  };
+  // Check catalogue first (50+ products), then old 6-product list, then fallback
+  return (
+    catalogueProducts.find(p => p.id === item.sku) ??
+    allProducts.find(p => p.id === item.sku) ?? {
+      id: item.sku,
+      name: item.name,
+      brand: "Burnt Toast",
+      price: item.price,
+      image: item.img ?? "",
+      category: section === "top" ? "Tops" : section === "bottom" ? "Bottoms" : section === "footwear" ? "Footwear" : "Accessories",
+      tags: [],
+      rating: 0,
+      reviews: 0,
+      sizes: ["XS", "S", "M", "L", "XL"],
+      description: item.note,
+    }
+  );
 }
 
 /* ── Compact card — renders ALL outfit sections in one unified grid ── */
@@ -712,10 +744,132 @@ function MultiRenderer({ data, onQuickReply }: { data: MultiData; onQuickReply: 
   );
 }
 
+/* ── Mini catalogue card for in-chat product browsing ─────────── */
+function MiniProductCard({ product }: { product: Product }) {
+  const { addItem, isInCart } = useCart();
+  const { toggleItem, isWishlisted } = useWishlist();
+  const [added, setAdded] = useState(false);
+  const [showSizes, setShowSizes] = useState(false);
+  const sizeList = product.sizes ?? [];
+  const needsSize = sizeList[0] !== "one size" && sizeList.length > 1;
+  const inCart = isInCart(product.id);
+  const wished = isWishlisted(product.id);
+
+  function addWithSize(sz: string) {
+    addItem(product, sz);
+    setAdded(true);
+    setShowSizes(false);
+    setTimeout(() => setAdded(false), 1800);
+  }
+
+  function handleCart(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (added || inCart) return;
+    if (needsSize) { setShowSizes(p => !p); } else { addWithSize(sizeList[0] ?? "one size"); }
+  }
+
+  return (
+    <div
+      style={{
+        background: BG, border: `1px solid ${showSizes ? ACCENT : BORDER}`, borderRadius: 10,
+        overflow: "hidden", display: "flex", flexDirection: "column",
+        cursor: "pointer", minWidth: 130, maxWidth: 150,
+        transition: "transform 0.15s, box-shadow 0.15s",
+      }}
+      onClick={() => !showSizes && product.id && window.open(`/product/${product.id}`, "_blank")}
+      onMouseEnter={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 5px 16px rgba(0,0,0,0.10)"; } }}
+      onMouseLeave={e => { if (!showSizes) { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; } }}
+    >
+      {/* Image */}
+      <div style={{ position: "relative", width: "100%", paddingBottom: "120%", background: CARD, overflow: "hidden" }}>
+        {product.image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={product.image} alt={product.name} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+        ) : (
+          <span style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 24 }}>👚</span>
+        )}
+        {/* Wishlist */}
+        <button onClick={e => { e.stopPropagation(); toggleItem(product); }}
+          style={{ position: "absolute", top: 5, right: 5, width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,0.9)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Heart size={10} fill={wished ? "#ef4444" : "none"} color={wished ? "#ef4444" : "#888"} />
+        </button>
+        {product.isNew && (
+          <span style={{ position: "absolute", top: 5, left: 5, background: ACCENT, color: "#fff", fontSize: 7, fontWeight: 900, padding: "2px 5px", borderRadius: 3, fontFamily: "'Courier New',monospace", letterSpacing: 1 }}>NEW</span>
+        )}
+      </div>
+      {/* Body */}
+      <div style={{ padding: "7px 8px 9px", display: "flex", flexDirection: "column", gap: 3, flex: 1 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: TEXT, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{product.name}</div>
+        <div style={{ fontSize: 12, fontWeight: 900, color: ACCENT, fontFamily: "'Courier New',monospace" }}>₹{product.price.toLocaleString("en-IN")}</div>
+        <button onClick={handleCart}
+          style={{ marginTop: "auto", width: "100%", padding: "5px 6px", borderRadius: 5, border: "none", background: added || inCart ? "#16a34a" : showSizes ? ACCENT : "#f3f4f6", color: added || inCart || showSizes ? "#fff" : TEXT, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'Courier New',monospace", letterSpacing: 0.8, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
+          {added ? <><Check size={8} /> ADDED!</> : inCart ? <><Check size={8} /> IN CART</> : showSizes ? <>✕ CANCEL</> : needsSize ? <><ShoppingBag size={8} /> SELECT SIZE</> : <><ShoppingBag size={8} /> ADD</>}
+        </button>
+        {showSizes && !added && (
+          <div onClick={e => e.stopPropagation()} style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 2 }}>
+            {sizeList.map(sz => (
+              <button key={sz} onClick={e => { e.stopPropagation(); addWithSize(sz); }}
+                style={{ padding: "3px 6px", fontSize: 8, fontWeight: 700, border: `1px solid ${BORDER}`, borderRadius: 4, background: BG, color: TEXT, cursor: "pointer", fontFamily: "'Courier New',monospace" }}>
+                {sz}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Products renderer — in-chat catalogue browsing ──────────── */
+function ProductsRenderer({ data, onQuickReply }: { data: ProductsData; onQuickReply: (t: string) => void }) {
+  const results = chatCategoryFilter(data.category ?? "all", data.gender ?? "all").slice(0, 12);
+
+  const catLabel = data.category === "all" ? "Collection" : data.category;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Message bubble */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: "4px 12px 12px 12px", padding: "12px 16px", color: TEXT, fontSize: 13, lineHeight: 1.75 }}>
+        {data.message}
+      </div>
+
+      {/* Divider */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ flex: 1, height: 1, background: BORDER }} />
+        <span style={{ color: MUTED, fontSize: 9, fontWeight: 900, letterSpacing: 3, fontFamily: "'Courier New',monospace", whiteSpace: "nowrap" }}>
+          {results.length} {catLabel.toUpperCase()} PIECES
+        </span>
+        <div style={{ flex: 1, height: 1, background: BORDER }} />
+      </div>
+
+      {/* Horizontal scroll grid */}
+      <div style={{ overflowX: "auto", paddingBottom: 6 }}>
+        <div style={{ display: "flex", gap: 8, minWidth: "max-content" }}>
+          {results.map(p => <MiniProductCard key={p.id} product={p} />)}
+        </div>
+      </div>
+
+      {/* View all link */}
+      <a href="/#collection" style={{ display: "inline-flex", alignItems: "center", gap: 5, color: ACCENT, fontSize: 11, fontWeight: 700, fontFamily: "'Courier New',monospace", letterSpacing: 1, textDecoration: "none", alignSelf: "flex-start" }}>
+        VIEW ALL IN SHOP →
+      </a>
+
+      {data.next_question && (
+        <div style={{ color: MUTED, fontSize: 12, fontStyle: "italic", padding: "8px 14px", borderLeft: `3px solid ${BORDER}`, lineHeight: 1.6 }}>
+          {data.next_question}
+        </div>
+      )}
+
+      <FollowUpChips onQuickReply={onQuickReply} />
+    </div>
+  );
+}
+
 /* ── Smart dispatcher ────────────────────────────────────────────── */
 function ResponseRenderer({ data, onQuickReply }: { data: ParsedResponse; onQuickReply: (t: string) => void }) {
   if (data.type === "chat") return <ChatBubble data={data} onQuickReply={onQuickReply} />;
   if (data.type === "multi") return <MultiRenderer data={data} onQuickReply={onQuickReply} />;
+  if (data.type === "products") return <ProductsRenderer data={data as ProductsData} onQuickReply={onQuickReply} />;
   return <OutfitRenderer data={data as OutfitData} onQuickReply={onQuickReply} />;
 }
 

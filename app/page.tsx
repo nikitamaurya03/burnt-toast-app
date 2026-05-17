@@ -3,8 +3,7 @@ import Hero from "@/components/Hero";
 import FeaturedProducts from "@/components/FeaturedProducts";
 import CategoryShowcase from "@/components/CategoryShowcase";
 import ProductGrid from "@/components/ProductGrid";
-import { products } from "@/data/products";
-import { FashionProduct } from "@/types";
+import { catalogueProducts } from "@/data/catalogue";
 
 export default function HomePage() {
   return (
@@ -17,9 +16,9 @@ export default function HomePage() {
       <section id="collection" className="py-20 px-4 sm:px-6 bg-white border-t border-gray-100">
         <div className="max-w-7xl mx-auto">
           <ProductGrid
-            products={products as FashionProduct[]}
+            products={catalogueProducts}
             title="Full Collection"
-            subtitle="Burnt Toast pieces — filter by vibe, gender, or search."
+            subtitle={`${catalogueProducts.length} Burnt Toast pieces — filter by category, gender, or search.`}
             showFilters
           />
         </div>

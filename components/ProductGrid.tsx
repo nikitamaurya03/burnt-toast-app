@@ -22,6 +22,28 @@ const GENDERS: { label: string; value: Gender }[] = [
   { label: "Men",    value: "male" },
 ];
 
+const CATEGORIES = [
+  { label: "All",         value: "all" },
+  { label: "👚 Tops",     value: "tops" },
+  { label: "👖 Bottoms",  value: "bottoms" },
+  { label: "👗 Dresses",  value: "dresses" },
+  { label: "👟 Footwear", value: "footwear" },
+  { label: "👜 Accessories", value: "accessories" },
+];
+
+// Maps friendly filter → actual category strings in the data
+function matchesCategory(cat: string, productCat: string): boolean {
+  const pc = productCat.toLowerCase();
+  switch (cat) {
+    case "tops":        return pc === "t-shirts" || pc === "tops";
+    case "bottoms":     return pc === "bottoms" || pc === "skirts" || pc === "denims";
+    case "dresses":     return pc === "dresses";
+    case "footwear":    return pc === "footwear";
+    case "accessories": return pc === "accessories";
+    default:            return true;
+  }
+}
+
 function ChipRow<T extends string>({
   items,
   active,
@@ -82,11 +104,13 @@ export default function ProductGrid({
 }: Props) {
   const [occasion,    setOccasion]    = useState<Occasion>("all");
   const [gender,      setGender]      = useState<Gender>("all");
+  const [category,    setCategory]    = useState("all");
   const [search,      setSearch]      = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const filtered = useMemo(() => {
     let list = products;
+    if (category !== "all") list = list.filter((p) => matchesCategory(category, p.category));
     if (occasion !== "all") list = list.filter((p) => p.occasion === occasion);
     if (gender   !== "all") list = list.filter((p) => p.gender   === gender);
     if (search.trim()) {
@@ -101,11 +125,12 @@ export default function ProductGrid({
       );
     }
     return list;
-  }, [products, occasion, gender, search]);
+  }, [products, category, occasion, gender, search]);
 
-  const hasFilters = occasion !== "all" || gender !== "all" || search.trim();
+  const hasFilters = category !== "all" || occasion !== "all" || gender !== "all" || search.trim();
 
   function clearFilters() {
+    setCategory("all");
     setOccasion("all");
     setGender("all");
     setSearch("");
@@ -129,6 +154,8 @@ export default function ProductGrid({
       {/* Filters */}
       {showFilters && (
         <div className="mb-6 space-y-3">
+          {/* Quick category chips always visible */}
+          <ChipRow items={CATEGORIES} active={category} onChange={setCategory} />
           <div className="flex items-center gap-3">
             <div className="flex-1 relative">
               <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -166,6 +193,10 @@ export default function ProductGrid({
 
           {filtersOpen && (
             <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-4 animate-slide-up shadow-sm">
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Category</p>
+                <ChipRow items={CATEGORIES} active={category} onChange={setCategory} />
+              </div>
               <div>
                 <p className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Occasion</p>
                 <ChipRow items={OCCASIONS} active={occasion} onChange={setOccasion} />
