@@ -23,14 +23,44 @@ const SECTION_META: Record<string, { label: string; color: string }> = {
   bottom: { label: "BOTTOM", color: "#0891B2" },
 };
 
-/* ── Quick prompts ───────────────────────────────────────────────── */
-const QUICK = [
-  { label: "🕶️ Y2K Era – Men",         prompt: "Full Y2K streetwear fit for men, no cap go all out" },
-  { label: "🎓 Campus Slay – Men",      prompt: "College campus outfit for men under ₹1800, hits different" },
-  { label: "💃 Party Season – Women",   prompt: "Night out party look for women, it's giving main character energy" },
-  { label: "🏢 Corporate Baddie – Men", prompt: "Smart casual office look for men under ₹2000, understood the assignment" },
-  { label: "⚡ Athleisure Era – Men",   prompt: "Streetwear athleisure fit for men, lowkey goes hard" },
-  { label: "✨ Date Night – Women",     prompt: "Date night outfit for women, serve and slay" },
+/* ── Occasion cards ──────────────────────────────────────────────── */
+const OCCASIONS = [
+  {
+    emoji: "🎓",
+    title: "Main Character\nLecture Era",
+    desc: "Everyday campus fits that slap without even trying — comfy, expressive, and cheap enough to refresh on repeat, fr.",
+    prompt: "College campus outfit that hits different, comfy but make it fashion, expressive and affordable, understood the assignment",
+  },
+  {
+    emoji: "🎉",
+    title: "Fest Mode:\nUnlocked",
+    desc: "Bold prints and statement fits built for gigs, fests, and house parties where YOU are the main event. No cap.",
+    prompt: "College fest or house party outfit, bold and statement-making, I need to absolutely serve, it's giving main character energy",
+  },
+  {
+    emoji: "☀️",
+    title: "Lowkey Snatched\nHangouts",
+    desc: "Mall runs, café dates, friend's place — looks that feel effortless but actually hit different. Lowkey goes hard.",
+    prompt: "Casual hangout outfit for mall or café, effortless and clean but actually fire, lowkey hits different no cap",
+  },
+  {
+    emoji: "💃",
+    title: "Date Night,\nNo Debating",
+    desc: "Statement pieces that go absolutely crazy after dark — elevated, bold, and living rent-free in everyone's heads.",
+    prompt: "Date night outfit, elevated and bold, statement pieces that turn heads, it's giving luxury energy, serve and slay fr",
+  },
+  {
+    emoji: "⚡",
+    title: "Sport-to-Street\nEra",
+    desc: "Track pants styled up with a fitted tee — not gym wear, but the vibe between sport and street is bussin fr fr.",
+    prompt: "Athleisure streetwear outfit, sport meets street energy, baggy track pants styled up with a fitted tee, lowkey bussin",
+  },
+  {
+    emoji: "✈️",
+    title: "Wanderlust But\nMake It Fashion",
+    desc: "Put-together without trying too hard on a long day out — straight-fits and clean tees that travel and slay. Ate that.",
+    prompt: "Travel and day trip outfit, comfortable but put-together, straight fits and regular tees that look clean all day, understood the assignment",
+  },
 ];
 
 /* ── Types ───────────────────────────────────────────────────────── */
@@ -574,29 +604,98 @@ export default function LookbookChat() {
 
         {/* Welcome screen */}
         {messages.length === 0 && !loading && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 640, margin: "0 auto", width: "100%" }}>
-            <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 16, padding: "28px 24px", textAlign: "center" }}>
-              <div style={{ fontSize: 52, marginBottom: 14 }}>✨</div>
-              <div style={{ color: TEXT, fontSize: 22, fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New',monospace" }}>Ask Toastie</div>
-              <div style={{ color: MUTED, fontSize: 10, fontWeight: 700, marginBottom: 14, letterSpacing: 2, fontFamily: "'Courier New',monospace" }}>YOUR PERSONAL AI STYLIST</div>
-              <div style={{ color: MUTED, fontSize: 13, lineHeight: 1.8 }}>
-                Drop the <strong style={{ color: TEXT }}>occasion</strong>, your <strong style={{ color: TEXT }}>vibe</strong>, or <strong style={{ color: TEXT }}>budget</strong> — I&apos;ll build you a look that absolutely slaps from Burnt Toast&apos;s latest drops. Every piece shoppable, no cap. 🛍️
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 760, margin: "0 auto", width: "100%" }}>
+
+            {/* Hero card */}
+            <div style={{ background: ACCENT, borderRadius: 20, padding: "32px 28px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>✨</div>
+              <div style={{ color: "#fff", fontSize: 24, fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New',monospace", letterSpacing: 1 }}>
+                Ask Toastie
+              </div>
+              <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 9, fontWeight: 700, marginBottom: 16, letterSpacing: 3, fontFamily: "'Courier New',monospace" }}>
+                YOUR PERSONAL AI STYLIST
+              </div>
+              <div style={{ color: "rgba(255,255,255,0.80)", fontSize: 13, lineHeight: 1.85, maxWidth: 440, margin: "0 auto" }}>
+                Drop your <strong style={{ color: "#fff" }}>occasion</strong>, <strong style={{ color: "#fff" }}>vibe</strong>, or <strong style={{ color: "#fff" }}>budget</strong> — Toastie builds a full shoppable look that absolutely slaps. Every piece from Burnt Toast, no cap. 🛍️
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {QUICK.map((q, i) => (
-                <button key={i} onClick={() => send(q.prompt)}
+            {/* Section label */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, height: 1, background: BORDER }} />
+              <span style={{ color: MUTED, fontSize: 9, fontWeight: 900, letterSpacing: 3, fontFamily: "'Courier New',monospace", whiteSpace: "nowrap" }}>
+                OCCASIONS — WHERE CUSTOMERS WEAR BURNT TOAST
+              </span>
+              <div style={{ flex: 1, height: 1, background: BORDER }} />
+            </div>
+
+            {/* Occasion cards grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              {OCCASIONS.map((occ, i) => (
+                <div
+                  key={i}
                   style={{
-                    background: BG, border: `1px solid ${BORDER}`, borderRadius: 10,
-                    padding: "11px 13px", color: TEXT, fontSize: 11,
-                    cursor: "pointer", textAlign: "left", lineHeight: 1.5,
-                    fontFamily: "'Segoe UI',sans-serif", transition: "all 0.15s",
-                    boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+                    background: BG,
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: 16,
+                    padding: "20px 18px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                    boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
+                    transition: "box-shadow 0.2s, border-color 0.2s",
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = ACCENT; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = ACCENT; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = BG; e.currentTarget.style.color = TEXT; e.currentTarget.style.borderColor = BORDER; }}
-                >{q.label}</button>
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 24px rgba(0,0,0,0.10)"; e.currentTarget.style.borderColor = "#bbb"; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 6px rgba(0,0,0,0.05)"; e.currentTarget.style.borderColor = BORDER; }}
+                >
+                  {/* Emoji */}
+                  <div style={{ fontSize: 32, lineHeight: 1 }}>{occ.emoji}</div>
+
+                  {/* Title */}
+                  <div style={{
+                    color: TEXT, fontWeight: 800, fontSize: 14,
+                    lineHeight: 1.3, fontFamily: "'Segoe UI', sans-serif",
+                    whiteSpace: "pre-line",
+                  }}>
+                    {occ.title}
+                  </div>
+
+                  {/* Description */}
+                  <div style={{
+                    color: MUTED, fontSize: 11, lineHeight: 1.65,
+                    fontFamily: "'Segoe UI', sans-serif", flex: 1,
+                  }}>
+                    {occ.desc}
+                  </div>
+
+                  {/* Try Look button */}
+                  <button
+                    onClick={() => send(occ.prompt)}
+                    style={{
+                      marginTop: 4,
+                      width: "100%",
+                      padding: "9px 14px",
+                      borderRadius: 10,
+                      border: `1.5px solid ${BORDER}`,
+                      background: BG,
+                      color: TEXT,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      fontFamily: "'Courier New',monospace",
+                      letterSpacing: 0.5,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 5,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = ACCENT; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = ACCENT; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = BG; e.currentTarget.style.color = TEXT; e.currentTarget.style.borderColor = BORDER; }}
+                  >
+                    Try Look ↗
+                  </button>
+                </div>
               ))}
             </div>
           </div>
