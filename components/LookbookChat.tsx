@@ -19,47 +19,60 @@ const ACCENT = "#111111";
 
 /* ── Section colour bands ────────────────────────────────────────── */
 const SECTION_META: Record<string, { label: string; color: string }> = {
-  top:    { label: "TOP",    color: "#2563EB" },
-  bottom: { label: "BOTTOM", color: "#0891B2" },
+  top:        { label: "TOP",        color: "#2563EB" },
+  bottom:     { label: "BOTTOM",     color: "#0891B2" },
+  footwear:   { label: "FOOTWEAR",   color: "#7C3AED" },
+  bag:        { label: "BAG",        color: "#B45309" },
+  sunglasses: { label: "SUNGLASSES", color: "#059669" },
+  necklace:   { label: "NECKLACE",   color: "#DB2777" },
 };
 
-/* ── Occasion cards ──────────────────────────────────────────────── */
-const OCCASIONS = [
+/* ── Aesthetic identities ────────────────────────────────────────── */
+const AESTHETICS = [
   {
-    emoji: "🎓",
-    title: "College Campus",
-    desc: "Everyday lecture fits that slap without even trying — comfy, expressive, and cheap enough to refresh on repeat, fr.",
-    prompt: "College campus outfit that hits different, comfy but make it fashion, expressive and affordable, understood the assignment",
+    title:    "Y2K Revival",
+    icon:     "✨",
+    color:    "#5B21B6",
+    tagBg:    "#EDE9FE",
+    tagColor: "#5B21B6",
+    tags:     ["Bold", "Y2K", "Retro", "Statement"],
+    occasions: [
+      { icon: "🎓", label: "College fest / Freshers night" },
+      { icon: "👗", label: "Farewell / Prom" },
+      { icon: "🏠", label: "House party" },
+      { icon: "🎵", label: "Clubbing / Music gig / Concert" },
+      { icon: "🎂", label: "Birthday outfit" },
+    ],
+    prompt: "Show me Y2K revival style — bold and statement-making, full retro energy no cap",
   },
   {
-    emoji: "🎉",
-    title: "College Fest & Parties",
-    desc: "Bold prints and statement fits built for gigs, fests, and house parties where YOU are the main event. No cap.",
-    prompt: "College fest or house party outfit, bold and statement-making, I need to absolutely serve, it's giving main character energy",
+    title:    "Urban Streetwear",
+    icon:     "🔥",
+    color:    "#92400E",
+    tagBg:    "#FEF3C7",
+    tagColor: "#92400E",
+    tags:     ["Oversized", "Streetwear", "Preppy", "Athleisure"],
+    occasions: [
+      { icon: "✈️", label: "Airport look / Travel day trip" },
+      { icon: "☕", label: "Casual hangout (café, brunch, mall, friends' place)" },
+      { icon: "🏏", label: "Watching sports / IPL screening" },
+      { icon: "🎒", label: "Daily campus life" },
+    ],
+    prompt: "Show me urban streetwear style — oversized and street-coded, preppy athleisure energy hits different",
   },
   {
-    emoji: "☀️",
-    title: "Casual Hangouts",
-    desc: "Mall runs, café dates, friend's place — looks that feel effortless but actually hit different. Lowkey goes hard.",
-    prompt: "Casual hangout outfit for mall or café, effortless and clean but actually fire, lowkey hits different no cap",
-  },
-  {
-    emoji: "💃",
-    title: "Date & Night Out",
-    desc: "Statement pieces that go absolutely crazy after dark — elevated, bold, and living rent-free in everyone's heads.",
-    prompt: "Date night outfit, elevated and bold, statement pieces that turn heads, it's giving luxury energy, serve and slay fr",
-  },
-  {
-    emoji: "⚡",
-    title: "Athleisure",
-    desc: "Track pants styled up with a fitted tee — not gym wear, but the line between sport and street is bussin fr fr.",
-    prompt: "Athleisure streetwear outfit, sport meets street energy, baggy track pants styled up with a fitted tee, lowkey bussin",
-  },
-  {
-    emoji: "✈️",
-    title: "Travel & Day Trips",
-    desc: "Put-together without trying too hard on a long day out — clean fits that travel well and slay every stop. Ate that.",
-    prompt: "Travel and day trip outfit, comfortable but put-together, straight fits and regular tees that look clean all day, understood the assignment",
+    title:    "Smart Casual",
+    icon:     "💫",
+    color:    "#065F46",
+    tagBg:    "#D1FAE5",
+    tagColor: "#065F46",
+    tags:     ["Classic", "Minimal", "Elegant", "Chic"],
+    occasions: [
+      { icon: "🌙", label: "Date night" },
+      { icon: "💼", label: "Internship / Family office dinner" },
+      { icon: "🤝", label: "Networking" },
+    ],
+    prompt: "Show me smart casual style — classic and minimal, elegant and chic, clean effortless look fr",
   },
 ];
 
@@ -77,6 +90,10 @@ interface OutfitItem {
 interface OutfitPair {
   top?: OutfitItem;
   bottom?: OutfitItem;
+  footwear?: OutfitItem;
+  bag?: OutfitItem;
+  sunglasses?: OutfitItem;
+  necklace?: OutfitItem;
 }
 
 interface ChatData {
@@ -138,29 +155,44 @@ function buildProduct(item: OutfitItem, section: string): Product {
   };
 }
 
-/* ── Product card ────────────────────────────────────────────────── */
-function ProductCard({ section, item }: { section: string; item: OutfitItem }) {
+/* ── Compact card — renders ALL outfit sections in one unified grid ── */
+function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
   const meta = SECTION_META[section] ?? { label: section.toUpperCase(), color: ACCENT };
-  const [imgError, setImgError] = useState(false);
-  const [cartAdded, setCartAdded] = useState(false);
+  const [imgError,    setImgError]    = useState(false);
+  const [cartAdded,   setCartAdded]   = useState(false);
+  const [showSizes,   setShowSizes]   = useState(false);
+  const [pickedSize,  setPickedSize]  = useState<string | null>(null);
   const { addItem: addToCart, isInCart } = useCart();
   const { toggleItem, isWishlisted } = useWishlist();
 
   if (!item?.name) return null;
 
-  const product = buildProduct(item, section);
-  const defaultSize = product.sizes?.[0] ?? "M";
-  const inCart = isInCart(item.sku);
+  const product   = buildProduct(item, section);
+  const inCart    = isInCart(item.sku);
   const wishlisted = isWishlisted(item.sku);
 
-  function handleAddToCart(e: React.MouseEvent) {
-    e.stopPropagation();
-    addToCart(product, defaultSize);
+  // Items whose first size is NOT "one size" need user selection
+  const needsSize = product.sizes?.[0] !== "one size";
+
+  function addWithSize(size: string) {
+    addToCart(product, size);
+    setPickedSize(size);
     setCartAdded(true);
-    setTimeout(() => setCartAdded(false), 1600);
+    setShowSizes(false);
+    setTimeout(() => setCartAdded(false), 1800);
   }
 
-  function handleWishlist(e: React.MouseEvent) {
+  function handleCart(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (cartAdded || inCart) return;
+    if (needsSize) {
+      setShowSizes(prev => !prev);   // toggle size picker
+    } else {
+      addWithSize(product.sizes?.[0] ?? "one size");
+    }
+  }
+
+  function handleWish(e: React.MouseEvent) {
     e.stopPropagation();
     toggleItem(product);
   }
@@ -168,104 +200,133 @@ function ProductCard({ section, item }: { section: string; item: OutfitItem }) {
   return (
     <div
       style={{
-        background: BG, border: `1px solid ${BORDER}`, borderRadius: 12,
-        overflow: "hidden", display: "flex", flexDirection: "column",
-        cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-        transition: "transform 0.15s, box-shadow 0.15s",
+        background: BG,
+        border: `1px solid ${showSizes ? meta.color : BORDER}`,
+        borderRadius: 10, overflow: "hidden",
+        display: "flex", flexDirection: "column",
+        cursor: "pointer",
+        boxShadow: showSizes ? `0 0 0 2px ${meta.color}22` : "0 1px 4px rgba(0,0,0,0.05)",
+        transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
       }}
-      onClick={() => item.url && window.open(item.url, "_blank")}
-      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.10)"; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.06)"; }}
+      onClick={() => !showSizes && item.url && window.open(item.url, "_blank")}
+      onMouseEnter={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 5px 16px rgba(0,0,0,0.10)"; }}}
+      onMouseLeave={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.05)"; }}}
     >
+      {/* Colour band */}
       <div style={{ height: 3, background: meta.color }} />
 
-      {/* Portrait image — aspect ratio 3:4 */}
+      {/* Square image */}
       <div style={{
-        background: CARD,
-        position: "relative",
-        width: "100%",
-        paddingBottom: "133%",   /* 4/3 = 133% — portrait */
-        overflow: "hidden",
-        fontSize: 40,
+        background: CARD, position: "relative",
+        width: "100%", paddingBottom: "100%", overflow: "hidden",
       }}>
         {item.img && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.img} alt={item.name}
-            style={{
-              position: "absolute", inset: 0,
-              width: "100%", height: "100%",
-              objectFit: "cover", objectPosition: "top center",
-            }}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center" }}
             onError={() => setImgError(true)}
           />
         ) : (
-          <span style={{
-            position: "absolute", top: "50%", left: "50%",
-            transform: "translate(-50%,-50%)",
-          }}>{item.emoji}</span>
+          <span style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 28 }}>
+            {item.emoji}
+          </span>
         )}
+
+        {/* Section label badge */}
         <div style={{
-          position: "absolute", top: 6, left: 6,
+          position: "absolute", top: 5, left: 5,
           background: meta.color, color: "#fff",
-          fontSize: 8, fontWeight: 900, padding: "2px 7px",
-          borderRadius: 4, letterSpacing: 1.5,
+          fontSize: 7, fontWeight: 900, padding: "2px 6px",
+          borderRadius: 3, letterSpacing: 1.2,
           fontFamily: "'Courier New', monospace",
         }}>{meta.label}</div>
 
-        {/* Wishlist toggle */}
+        {/* Wishlist button */}
         <button
-          onClick={handleWishlist}
+          onClick={handleWish}
           aria-label="Toggle wishlist"
           style={{
-            position: "absolute", top: 6, right: 6,
-            width: 28, height: 28, borderRadius: "50%",
-            background: "rgba(255,255,255,0.92)",
+            position: "absolute", top: 5, right: 5,
+            width: 24, height: 24, borderRadius: "50%",
+            background: "rgba(255,255,255,0.90)",
             border: "none", cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 1px 5px rgba(0,0,0,0.18)",
-            transition: "transform 0.15s",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
           }}
         >
-          <Heart
-            size={14}
-            fill={wishlisted ? "#ef4444" : "none"}
-            color={wishlisted ? "#ef4444" : "#888"}
-          />
+          <Heart size={11} fill={wishlisted ? "#ef4444" : "none"} color={wishlisted ? "#ef4444" : "#888"} />
         </button>
       </div>
 
-      <div style={{ padding: "12px 14px", flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
-        <div style={{ color: TEXT, fontWeight: 700, fontSize: 13, lineHeight: 1.35 }}>{item.name}</div>
-        <div style={{ color: meta.color, fontWeight: 900, fontSize: 18, fontFamily: "'Courier New',monospace" }}>₹{item.price}</div>
-        <div style={{ color: MUTED, fontSize: 10, lineHeight: 1.6, marginTop: 1 }}>{item.note}</div>
+      {/* Card body */}
+      <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+        <div style={{
+          color: TEXT, fontWeight: 700, fontSize: 11, lineHeight: 1.3,
+          overflow: "hidden", display: "-webkit-box",
+          WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+        }}>{item.name}</div>
+        <div style={{ color: meta.color, fontWeight: 900, fontSize: 13, fontFamily: "'Courier New',monospace" }}>₹{item.price}</div>
 
-        {/* Add to Cart */}
+        {/* ADD / ADDED button */}
         <button
-          onClick={handleAddToCart}
+          onClick={handleCart}
           style={{
             marginTop: "auto",
-            width: "100%",
-            padding: "9px 10px",
-            borderRadius: 8,
-            border: "none",
-            background: cartAdded || inCart ? ACCENT : "#f3f4f6",
-            color: cartAdded || inCart ? "#fff" : TEXT,
-            fontSize: 10,
-            fontWeight: 700,
-            fontFamily: "'Courier New',monospace",
-            letterSpacing: 1,
-            cursor: "pointer",
-            transition: "all 0.2s",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 5,
+            width: "100%", padding: "6px 8px", borderRadius: 6, border: "none",
+            background: cartAdded || inCart ? ACCENT : showSizes ? meta.color : "#f3f4f6",
+            color: cartAdded || inCart || showSizes ? "#fff" : TEXT,
+            fontSize: 9, fontWeight: 700,
+            fontFamily: "'Courier New',monospace", letterSpacing: 0.8,
+            cursor: "pointer", transition: "all 0.2s",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
           }}
         >
-          {cartAdded ? <Check size={11} /> : <ShoppingBag size={11} />}
-          {cartAdded ? "ADDED!" : inCart ? "IN CART" : "ADD TO CART"}
+          {cartAdded
+            ? <><Check size={9} /> ADDED!</>
+            : inCart
+              ? <><Check size={9} /> IN CART</>
+              : showSizes
+                ? <>✕ CANCEL</>
+                : needsSize
+                  ? <><ShoppingBag size={9} /> SELECT SIZE</>
+                  : <><ShoppingBag size={9} /> ADD</>
+          }
         </button>
+
+        {/* ── Inline size picker ── */}
+        {showSizes && !cartAdded && (
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ marginTop: 2 }}
+          >
+            <div style={{
+              color: MUTED, fontSize: 8, fontWeight: 700,
+              letterSpacing: 1.2, fontFamily: "'Courier New',monospace",
+              marginBottom: 5,
+            }}>PICK SIZE</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {product.sizes?.map(sz => (
+                <button
+                  key={sz}
+                  onClick={e => { e.stopPropagation(); addWithSize(sz); }}
+                  style={{
+                    padding: "4px 8px", fontSize: 9, fontWeight: 700,
+                    border: `1.5px solid ${pickedSize === sz ? meta.color : BORDER}`,
+                    borderRadius: 5,
+                    background: pickedSize === sz ? meta.color : BG,
+                    color: pickedSize === sz ? "#fff" : TEXT,
+                    cursor: "pointer",
+                    fontFamily: "'Courier New',monospace",
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => { if (pickedSize !== sz) { e.currentTarget.style.borderColor = meta.color; e.currentTarget.style.color = meta.color; }}}
+                  onMouseLeave={e => { if (pickedSize !== sz) { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = TEXT; }}}
+                >{sz}</button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -282,20 +343,48 @@ function OutfitBlock({
   budget_note: string;
   label?: string;
 }) {
-  const items = (["top", "bottom"] as const).filter(k => outfit?.[k]?.name);
-  const { addItem: addToCart } = useCart();
-  const [shopAdded, setShopAdded] = useState(false);
+  // All available items in display order — every slot is its own key
+  const allKeys = (["top", "bottom", "footwear", "bag", "sunglasses", "necklace"] as const).filter(k => outfit?.[k]?.name);
 
-  function handleShopLook(e: React.MouseEvent) {
-    e.stopPropagation();
-    items.forEach(k => {
+  // Items that need size selection (not "one size")
+  const sizableKeys = allKeys.filter(k => {
+    const it = outfit[k];
+    if (!it) return false;
+    const prod = buildProduct(it, k as string);
+    return prod.sizes?.[0] !== "one size";
+  });
+
+  const { addItem: addToCart } = useCart();
+  const [shopAdded,     setShopAdded]     = useState(false);
+  const [showLookSizer, setShowLookSizer] = useState(false);
+  const [lookSizes,     setLookSizes]     = useState<Record<string, string>>({});
+
+  // All sizable items have a size picked
+  const allSizesPicked = sizableKeys.every(k => lookSizes[k]);
+
+  function confirmAddLook() {
+    allKeys.forEach(k => {
       const it = outfit[k];
       if (!it) return;
-      const product = buildProduct(it, k);
-      addToCart(product, product.sizes?.[0] ?? "M");
+      const prod = buildProduct(it, k as string);
+      const needsSize = prod.sizes?.[0] !== "one size";
+      const size = needsSize ? (lookSizes[k] ?? prod.sizes?.[0] ?? "M") : (prod.sizes?.[0] ?? "one size");
+      addToCart(prod, size);
     });
     setShopAdded(true);
-    setTimeout(() => setShopAdded(false), 2000);
+    setShowLookSizer(false);
+    setLookSizes({});
+    setTimeout(() => setShopAdded(false), 2200);
+  }
+
+  function handleLookCartClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (sizableKeys.length === 0) {
+      // nothing needs sizing — add immediately
+      confirmAddLook();
+    } else {
+      setShowLookSizer(prev => !prev);
+    }
   }
 
   return (
@@ -315,7 +404,7 @@ function OutfitBlock({
       )}
 
       <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-        {/* Badges */}
+        {/* Occasion + vibe badges */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {occasion && (
             <span style={{
@@ -333,10 +422,18 @@ function OutfitBlock({
           )}
         </div>
 
-        {/* Product cards */}
-        {items.length > 0 ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "stretch" }}>
-            {items.map(k => <ProductCard key={k} section={k} item={outfit[k]!} />)}
+        {/* ONE ROW — fixed order: top → bottom → footwear → bag → sunglasses → necklace */}
+        {allKeys.length > 0 ? (
+          <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${allKeys.length}, minmax(120px, 1fr))`,
+              gap: 8,
+              minWidth: allKeys.length * 128,
+              alignItems: "start",
+            }}>
+              {allKeys.map(k => <CompactCard key={k} section={k} item={outfit[k]!} />)}
+            </div>
           </div>
         ) : (
           <div style={{ color: MUTED, fontSize: 12, textAlign: "center", padding: "12px 0" }}>
@@ -344,8 +441,91 @@ function OutfitBlock({
           </div>
         )}
 
-        {/* Total + shop */}
-        {items.length > 0 && (
+        {/* ── Look-level size picker panel ── */}
+        {showLookSizer && (
+          <div style={{
+            background: CARD, border: `1px solid ${BORDER}`,
+            borderRadius: 12, padding: "14px 16px",
+            display: "flex", flexDirection: "column", gap: 14,
+          }}>
+            <div style={{
+              color: TEXT, fontWeight: 900, fontSize: 11,
+              fontFamily: "'Courier New',monospace", letterSpacing: 1.5,
+            }}>
+              SELECT YOUR SIZES
+            </div>
+
+            {sizableKeys.map(k => {
+              const it = outfit[k]!;
+              const prod = buildProduct(it, k as string);
+              const meta = SECTION_META[k] ?? { label: k.toUpperCase(), color: ACCENT };
+              return (
+                <div key={k}>
+                  {/* Item header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
+                    <span style={{
+                      background: meta.color, color: "#fff",
+                      fontSize: 7, fontWeight: 900, padding: "2px 7px",
+                      borderRadius: 3, letterSpacing: 1.2,
+                      fontFamily: "'Courier New',monospace",
+                    }}>{meta.label}</span>
+                    <span style={{ color: TEXT, fontSize: 11, fontWeight: 600 }}>{it.name}</span>
+                    {lookSizes[k] && (
+                      <span style={{
+                        marginLeft: "auto", background: meta.color, color: "#fff",
+                        fontSize: 9, fontWeight: 900, padding: "2px 8px", borderRadius: 20,
+                        fontFamily: "'Courier New',monospace",
+                      }}>✓ {lookSizes[k]}</span>
+                    )}
+                  </div>
+                  {/* Size pills */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {prod.sizes?.map(sz => (
+                      <button
+                        key={sz}
+                        onClick={() => setLookSizes(prev => ({ ...prev, [k]: sz }))}
+                        style={{
+                          padding: "6px 12px", fontSize: 11, fontWeight: 700,
+                          border: `1.5px solid ${lookSizes[k] === sz ? meta.color : BORDER}`,
+                          borderRadius: 7,
+                          background: lookSizes[k] === sz ? meta.color : BG,
+                          color: lookSizes[k] === sz ? "#fff" : TEXT,
+                          cursor: "pointer",
+                          fontFamily: "'Courier New',monospace",
+                          transition: "all 0.15s",
+                        }}
+                        onMouseEnter={e => { if (lookSizes[k] !== sz) { e.currentTarget.style.borderColor = meta.color; e.currentTarget.style.color = meta.color; }}}
+                        onMouseLeave={e => { if (lookSizes[k] !== sz) { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = TEXT; }}}
+                      >{sz}</button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Confirm button */}
+            <button
+              onClick={allSizesPicked ? confirmAddLook : undefined}
+              disabled={!allSizesPicked}
+              style={{
+                width: "100%", padding: "10px", borderRadius: 8, border: "none",
+                background: allSizesPicked ? "#16a34a" : CARD,
+                color: allSizesPicked ? "#fff" : MUTED,
+                fontSize: 11, fontWeight: 900,
+                fontFamily: "'Courier New',monospace", letterSpacing: 1,
+                cursor: allSizesPicked ? "pointer" : "not-allowed",
+                transition: "all 0.2s",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              }}
+            >
+              <ShoppingBag size={13} />
+              {allSizesPicked ? "CONFIRM & ADD ALL TO CART" : `PICK ALL SIZES (${sizableKeys.filter(k => lookSizes[k]).length}/${sizableKeys.length} done)`}
+            </button>
+          </div>
+        )}
+
+        {/* Total + add-look-to-cart */}
+        {allKeys.length > 0 && (
           <div style={{
             background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10,
             padding: "10px 12px", display: "flex",
@@ -359,9 +539,9 @@ function OutfitBlock({
               <div style={{ color: MUTED, fontSize: 10, marginTop: 2 }}>{budget_note}</div>
             </div>
             <button
-              onClick={handleShopLook}
+              onClick={handleLookCartClick}
               style={{
-                background: shopAdded ? "#16a34a" : ACCENT,
+                background: shopAdded ? "#16a34a" : showLookSizer ? ACCENT : ACCENT,
                 color: "#fff", border: "none", borderRadius: 8,
                 padding: "9px 16px", fontSize: 11, fontWeight: 900,
                 cursor: "pointer", fontFamily: "'Courier New',monospace",
@@ -370,7 +550,12 @@ function OutfitBlock({
                 display: "flex", alignItems: "center", gap: 6,
               }}
             >
-              {shopAdded ? <><Check size={13} /> ADDED TO CART!</> : <><ShoppingBag size={13} /> ADD LOOK TO CART</>}
+              {shopAdded
+                ? <><Check size={13} /> ADDED TO CART!</>
+                : showLookSizer
+                  ? <>✕ CANCEL</>
+                  : <><ShoppingBag size={13} /> ADD LOOK TO CART</>
+              }
             </button>
           </div>
         )}
@@ -416,7 +601,38 @@ function ChatBubble({ data, onQuickReply }: { data: ChatData; onQuickReply: (t: 
   );
 }
 
-function OutfitRenderer({ data }: { data: OutfitData }) {
+/* ── Shared follow-up chips shown after every outfit / multi ─────── */
+const FOLLOWUP_CHIPS = [
+  "Show me more looks",
+  "Different vibe",
+  "Keep it under ₹1500",
+  "More streetwear",
+  "Something bolder",
+];
+
+function FollowUpChips({ onQuickReply }: { onQuickReply: (t: string) => void }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+      {FOLLOWUP_CHIPS.map((chip, i) => (
+        <button
+          key={i}
+          onClick={() => onQuickReply(chip)}
+          style={{
+            background: BG, border: `1px solid ${BORDER}`,
+            borderRadius: 20, padding: "6px 12px",
+            fontSize: 11, color: TEXT, cursor: "pointer",
+            fontFamily: "'Segoe UI',sans-serif",
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = ACCENT; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = ACCENT; }}
+          onMouseLeave={e => { e.currentTarget.style.background = BG; e.currentTarget.style.color = TEXT; e.currentTarget.style.borderColor = BORDER; }}
+        >{chip}</button>
+      ))}
+    </div>
+  );
+}
+
+function OutfitRenderer({ data, onQuickReply }: { data: OutfitData; onQuickReply: (t: string) => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{
@@ -447,11 +663,13 @@ function OutfitRenderer({ data }: { data: OutfitData }) {
           padding: "8px 14px", borderLeft: `3px solid ${BORDER}`, lineHeight: 1.6,
         }}>{data.next_question}</div>
       )}
+
+      <FollowUpChips onQuickReply={onQuickReply} />
     </div>
   );
 }
 
-function MultiRenderer({ data }: { data: MultiData }) {
+function MultiRenderer({ data, onQuickReply }: { data: MultiData; onQuickReply: (t: string) => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{
@@ -488,6 +706,8 @@ function MultiRenderer({ data }: { data: MultiData }) {
           padding: "8px 14px", borderLeft: `3px solid ${BORDER}`, lineHeight: 1.6,
         }}>{data.next_question}</div>
       )}
+
+      <FollowUpChips onQuickReply={onQuickReply} />
     </div>
   );
 }
@@ -495,18 +715,29 @@ function MultiRenderer({ data }: { data: MultiData }) {
 /* ── Smart dispatcher ────────────────────────────────────────────── */
 function ResponseRenderer({ data, onQuickReply }: { data: ParsedResponse; onQuickReply: (t: string) => void }) {
   if (data.type === "chat") return <ChatBubble data={data} onQuickReply={onQuickReply} />;
-  if (data.type === "multi") return <MultiRenderer data={data} />;
-  return <OutfitRenderer data={data as OutfitData} />;
+  if (data.type === "multi") return <MultiRenderer data={data} onQuickReply={onQuickReply} />;
+  return <OutfitRenderer data={data as OutfitData} onQuickReply={onQuickReply} />;
 }
 
 /* ── Parse helper ────────────────────────────────────────────────── */
 function parseRaw(raw: string): ParsedResponse | null {
+  if (!raw || !raw.trim()) return null;
   try {
-    const stripped = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/,"").trim();
-    const jsonStr = stripped.match(/\{[\s\S]*\}/)?.[0] ?? stripped;
+    // 1. Strip markdown fences
+    const stripped = raw
+      .trim()
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/, "")
+      .trim();
+
+    // 2. Try to extract a JSON object — greedy from first { to last }
+    const match = stripped.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    const jsonStr = match[0];
+
+    // 3. Parse and normalise missing type field
     const obj = JSON.parse(jsonStr);
 
-    // Normalise missing type field by detecting structure
     if (!obj.type) {
       if (Array.isArray(obj.looks)) obj.type = "multi";
       else if (obj.outfit) obj.type = "outfit";
@@ -541,7 +772,8 @@ export default function LookbookChat() {
     setLoading(true);
 
     try {
-      const history = messages.map(m => ({ role: m.role, content: m.content }));
+      // Keep only last 10 messages to avoid context bloat on long conversations
+      const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -549,15 +781,19 @@ export default function LookbookChat() {
       });
 
       const data = await res.json();
-      const parsed = parseRaw(data._raw || "");
 
-      // Fallback: if parsing fails, show Claude's plain message text
+      // Try _raw first (full Claude output), then fall back to data.message (may be partial)
+      const parsed = parseRaw(data._raw || "") ?? parseRaw(data.message || "");
+
       if (!parsed) {
-        const fallback: ChatData = {
-          type: "chat",
-          message: data.message || "Something went wrong — try again!",
-        };
-        setMessages(prev => [...prev, { role: "assistant", content: data.message || "", parsed: fallback }]);
+        // Guard: if data.message looks like raw JSON, never show it — use friendly text
+        const rawMsg = data.message || "";
+        const safeMessage = rawMsg.trimStart().startsWith("{")
+          ? "Toastie's brain had a moment — try asking again! No cap it'll hit different next time 😅"
+          : (rawMsg || "Something went wrong — try again!");
+
+        const fallback: ChatData = { type: "chat", message: safeMessage };
+        setMessages(prev => [...prev, { role: "assistant", content: safeMessage, parsed: fallback }]);
       } else {
         setMessages(prev => [...prev, { role: "assistant", content: data.message || "", parsed }]);
       }
@@ -593,9 +829,28 @@ export default function LookbookChat() {
           <div style={{ color: MUTED, fontSize: 9, letterSpacing: 2, fontFamily: "'Courier New',monospace" }}>YOUR PERSONAL AI STYLIST</div>
         </div>
 
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <div style={{ width: 7, height: 7, background: "#22c55e", borderRadius: "50%", boxShadow: "0 0 6px #22c55e" }} />
-          <span style={{ fontSize: 10, color: "#22c55e", fontFamily: "'Courier New',monospace" }}>LIVE</span>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <div style={{ width: 7, height: 7, background: "#22c55e", borderRadius: "50%", boxShadow: "0 0 6px #22c55e" }} />
+            <span style={{ fontSize: 10, color: "#22c55e", fontFamily: "'Courier New',monospace" }}>LIVE</span>
+          </div>
+          {messages.length > 0 && (
+            <button
+              onClick={() => setMessages([])}
+              title="Start a new chat"
+              style={{
+                background: "transparent", border: `1px solid ${BORDER}`,
+                borderRadius: 6, padding: "4px 10px",
+                fontSize: 9, fontWeight: 700, color: MUTED,
+                fontFamily: "'Courier New',monospace", letterSpacing: 1,
+                cursor: "pointer", transition: "all 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = TEXT; e.currentTarget.style.color = TEXT; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = MUTED; }}
+            >
+              NEW CHAT
+            </button>
+          )}
         </div>
       </div>
 
@@ -604,100 +859,110 @@ export default function LookbookChat() {
 
         {/* Welcome screen */}
         {messages.length === 0 && !loading && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 760, margin: "0 auto", width: "100%" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 800, margin: "0 auto", width: "100%" }}>
 
-            {/* Hero card */}
-            <div style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 20, padding: "32px 28px", textAlign: "center", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>✨</div>
-              <div style={{ color: TEXT, fontSize: 24, fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New',monospace", letterSpacing: 1 }}>
+            {/* ── Hero card ── */}
+            <div style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 16, padding: "32px 28px", textAlign: "center" }}>
+              <div style={{ color: TEXT, fontSize: 26, fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New',monospace", letterSpacing: 1 }}>
                 Ask Toastie
               </div>
-              <div style={{ color: MUTED, fontSize: 9, fontWeight: 700, marginBottom: 16, letterSpacing: 3, fontFamily: "'Courier New',monospace" }}>
-                YOUR PERSONAL AI STYLIST
+              <div style={{ color: MUTED, fontSize: 9, fontWeight: 700, marginBottom: 14, letterSpacing: 3, fontFamily: "'Courier New',monospace" }}>
+                YOUR PERSONAL AI STYLIST · SPRING 26
               </div>
-              <div style={{ color: MUTED, fontSize: 13, lineHeight: 1.85, maxWidth: 440, margin: "0 auto" }}>
-                Drop the <strong style={{ color: TEXT }}>occasion</strong>, your <strong style={{ color: TEXT }}>vibe</strong>, or <strong style={{ color: TEXT }}>budget</strong> — Toastie builds a full shoppable look that absolutely slaps. Every piece from Burnt Toast, no cap. 🛍️
+              <div style={{ color: MUTED, fontSize: 13, lineHeight: 1.9, maxWidth: 440, margin: "0 auto" }}>
+                Tell Toastie your <strong style={{ color: TEXT }}>aesthetic</strong>, <strong style={{ color: TEXT }}>occasion</strong>, or <strong style={{ color: TEXT }}>budget</strong> — get a full shoppable Spring 26 look in seconds.
               </div>
             </div>
 
-            {/* Section label */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* ── AESTHETIC IDENTITY ── */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ flex: 1, height: 1, background: BORDER }} />
-              <span style={{ color: MUTED, fontSize: 9, fontWeight: 900, letterSpacing: 3, fontFamily: "'Courier New',monospace", whiteSpace: "nowrap" }}>
-                OCCASIONS — WHERE CUSTOMERS WEAR BURNT TOAST
+              <span style={{ color: MUTED, fontSize: 9, fontWeight: 700, letterSpacing: 3, fontFamily: "'Courier New',monospace", whiteSpace: "nowrap" }}>
+                FIND YOUR AESTHETIC
               </span>
               <div style={{ flex: 1, height: 1, background: BORDER }} />
             </div>
 
-            {/* Occasion cards grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-              {OCCASIONS.map((occ, i) => (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+              {AESTHETICS.map((a, i) => (
                 <div
                   key={i}
+                  onClick={() => send(a.prompt)}
                   style={{
-                    background: BG,
-                    border: `1px solid ${BORDER}`,
-                    borderRadius: 16,
-                    padding: "20px 18px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                    boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
-                    transition: "box-shadow 0.2s, border-color 0.2s",
+                    background: BG, border: `1px solid ${BORDER}`,
+                    borderRadius: 14, overflow: "hidden",
+                    cursor: "pointer", transition: "border-color 0.15s, box-shadow 0.15s",
+                    display: "flex", flexDirection: "column",
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 24px rgba(0,0,0,0.10)"; e.currentTarget.style.borderColor = "#bbb"; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 1px 6px rgba(0,0,0,0.05)"; e.currentTarget.style.borderColor = BORDER; }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = a.color; e.currentTarget.style.boxShadow = `0 4px 20px ${a.color}22`; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.boxShadow = "none"; }}
                 >
-                  {/* Emoji */}
-                  <div style={{ fontSize: 32, lineHeight: 1 }}>{occ.emoji}</div>
+                  {/* Colour bar */}
+                  <div style={{ height: 4, background: a.color }} />
 
-                  {/* Title */}
-                  <div style={{
-                    color: TEXT, fontWeight: 800, fontSize: 14,
-                    lineHeight: 1.3, fontFamily: "'Segoe UI', sans-serif",
-                    whiteSpace: "pre-line",
-                  }}>
-                    {occ.title}
-                  </div>
+                  <div style={{ padding: "18px 16px 16px", display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
 
-                  {/* Description */}
-                  <div style={{
-                    color: MUTED, fontSize: 11, lineHeight: 1.65,
-                    fontFamily: "'Segoe UI', sans-serif", flex: 1,
-                  }}>
-                    {occ.desc}
-                  </div>
+                    {/* Icon + Title row */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{
+                        width: 34, height: 34, borderRadius: 10,
+                        background: a.tagBg, display: "flex",
+                        alignItems: "center", justifyContent: "center", fontSize: 17,
+                        flexShrink: 0,
+                      }}>{a.icon}</div>
+                      <div style={{ color: TEXT, fontWeight: 900, fontSize: 13, letterSpacing: 0.5, fontFamily: "'Courier New',monospace", lineHeight: 1.2 }}>
+                        {a.title.toUpperCase()}
+                      </div>
+                    </div>
 
-                  {/* Try Look button */}
-                  <button
-                    onClick={() => send(occ.prompt)}
-                    style={{
+                    {/* Style tag chips */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                      {a.tags.map((tag, t) => (
+                        <span key={t} style={{
+                          background: a.tagBg, color: a.tagColor,
+                          fontSize: 9, fontWeight: 700, padding: "3px 9px",
+                          borderRadius: 20, letterSpacing: 0.5,
+                          fontFamily: "'Courier New',monospace",
+                        }}>{tag}</span>
+                      ))}
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ height: 1, background: BORDER }} />
+
+                    {/* Occasions list */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7, flex: 1 }}>
+                      {a.occasions.map((occ, o) => (
+                        <div key={o} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                          <span style={{
+                            fontSize: 13, lineHeight: 1,
+                            marginTop: 1, flexShrink: 0,
+                          }}>{occ.icon}</span>
+                          <span style={{
+                            color: MUTED, fontSize: 11, lineHeight: 1.5,
+                          }}>{occ.label}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* CTA */}
+                    <div style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
                       marginTop: 4,
-                      width: "100%",
-                      padding: "9px 14px",
-                      borderRadius: 10,
-                      border: `1.5px solid ${BORDER}`,
-                      background: BG,
-                      color: TEXT,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      fontFamily: "'Courier New',monospace",
-                      letterSpacing: 0.5,
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 5,
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = ACCENT; e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = ACCENT; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = BG; e.currentTarget.style.color = TEXT; e.currentTarget.style.borderColor = BORDER; }}
-                  >
-                    Try Look ↗
-                  </button>
+                    }}>
+                      <div style={{
+                        color: a.color, fontSize: 10, fontWeight: 700,
+                        fontFamily: "'Courier New',monospace", letterSpacing: 0.5,
+                      }}>
+                        Shop this aesthetic ↗
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
               ))}
             </div>
+
           </div>
         )}
 
@@ -772,7 +1037,6 @@ export default function LookbookChat() {
                   animationDelay: `${n * 0.2}s`,
                 }} />
               ))}
-              <style>{`@keyframes btpulse{0%,80%,100%{transform:scale(.5);opacity:.3}40%{transform:scale(1);opacity:1}}`}</style>
             </div>
           </div>
         )}

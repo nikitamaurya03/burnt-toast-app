@@ -54,7 +54,17 @@ function parseResponse(raw: string): ChatAPIResponse {
       .replace(/\s*```$/, "")
       .trim();
 
-    const parsed = JSON.parse(cleaned);
+    // Try direct parse first; if that fails, try regex JSON extraction
+    let jsonStr = cleaned;
+    try {
+      JSON.parse(cleaned);
+    } catch {
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error("no JSON object found in response");
+      jsonStr = match[0];
+    }
+
+    const parsed = JSON.parse(jsonStr);
 
     const f = parsed.filters ?? {};
     const filters: ExtractedFilters = {
@@ -72,14 +82,10 @@ function parseResponse(raw: string): ChatAPIResponse {
       isComplete:   Boolean(parsed.isComplete),
       quickReplies: Array.isArray(parsed.quickReplies) ? parsed.quickReplies : [],
     };
-  } catch {
-    // Claude replied with non-JSON plain text — return as message
-    return {
-      message:      raw.slice(0, 800),
-      filters:      DEFAULT_FILTERS,
-      isComplete:   false,
-      quickReplies: [],
-    };
+  } catch (err) {
+    // NEVER expose raw JSON as the message — always return a friendly fallback
+    console.error("[/api/chat] parseResponse failed:", (err as Error).message, "| raw[:150]:", raw.slice(0, 150));
+    return fallbackResponse("JSON parse failed");
   }
 }
 
@@ -117,7 +123,7 @@ export async function POST(req: NextRequest) {
       model:      "claude-haiku-4-5",
       system:     SYSTEM_PROMPT,
       messages,
-      max_tokens: 1024,
+      max_tokens: 2048,   // multi-look JSON with full CDN URLs needs ~1500+ tokens
     });
 
     // Extract the text content from Claude's response

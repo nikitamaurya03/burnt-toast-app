@@ -36,7 +36,8 @@
       "Bash(Select-Object -First 20)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/cart)",
       "Read(//mnt/c/Users/Nikita Maurya/Desktop/**)",
-      "Bash(node node_modules/typescript/bin/tsc --noEmit)"
+      "Bash(node node_modules/typescript/bin/tsc --noEmit)",
+      "Bash(node -e \"const {products} = require\\('./data/products.ts'\\); console.log\\('Total:', products.length\\)\")"
     ]
   }
 }
