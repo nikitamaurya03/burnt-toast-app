@@ -28,7 +28,7 @@ const OCCASIONS = [
   {
     emoji: "🎓",
     title: "College Campus",
-    desc: "Everyday lecture fits that hit different — comfy, expressive, and affordable enough to refresh on repeat, fr.",
+    desc: "Everyday lecture fits that slap without even trying — comfy, expressive, and cheap enough to refresh on repeat, fr.",
     prompt: "College campus outfit that hits different, comfy but make it fashion, expressive and affordable, understood the assignment",
   },
   {
@@ -616,7 +616,7 @@ export default function LookbookChat() {
                 YOUR PERSONAL AI STYLIST
               </div>
               <div style={{ color: "rgba(255,255,255,0.80)", fontSize: 13, lineHeight: 1.85, maxWidth: 440, margin: "0 auto" }}>
-                Drop your <strong style={{ color: "#fff" }}>occasion</strong>, <strong style={{ color: "#fff" }}>vibe</strong>, or <strong style={{ color: "#fff" }}>budget</strong> — Toastie builds a full shoppable look that absolutely slaps. Every piece from Burnt Toast, no cap. 🛍️
+                Drop the <strong style={{ color: "#fff" }}>occasion</strong>, your <strong style={{ color: "#fff" }}>vibe</strong>, or <strong style={{ color: "#fff" }}>budget</strong> — Toastie builds a full shoppable look that absolutely slaps. Every piece from Burnt Toast, no cap. 🛍️
               </div>
             </div>
 
