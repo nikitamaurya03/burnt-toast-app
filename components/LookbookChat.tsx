@@ -27,38 +27,38 @@ const SECTION_META: Record<string, { label: string; color: string }> = {
 const OCCASIONS = [
   {
     emoji: "🎓",
-    title: "Main Character\nLecture Era",
-    desc: "Everyday campus fits that slap without even trying — comfy, expressive, and cheap enough to refresh on repeat, fr.",
+    title: "College Campus",
+    desc: "Everyday lecture fits that hit different — comfy, expressive, and affordable enough to refresh on repeat, fr.",
     prompt: "College campus outfit that hits different, comfy but make it fashion, expressive and affordable, understood the assignment",
   },
   {
     emoji: "🎉",
-    title: "Fest Mode:\nUnlocked",
+    title: "College Fest & Parties",
     desc: "Bold prints and statement fits built for gigs, fests, and house parties where YOU are the main event. No cap.",
     prompt: "College fest or house party outfit, bold and statement-making, I need to absolutely serve, it's giving main character energy",
   },
   {
     emoji: "☀️",
-    title: "Lowkey Snatched\nHangouts",
+    title: "Casual Hangouts",
     desc: "Mall runs, café dates, friend's place — looks that feel effortless but actually hit different. Lowkey goes hard.",
     prompt: "Casual hangout outfit for mall or café, effortless and clean but actually fire, lowkey hits different no cap",
   },
   {
     emoji: "💃",
-    title: "Date Night,\nNo Debating",
+    title: "Date & Night Out",
     desc: "Statement pieces that go absolutely crazy after dark — elevated, bold, and living rent-free in everyone's heads.",
     prompt: "Date night outfit, elevated and bold, statement pieces that turn heads, it's giving luxury energy, serve and slay fr",
   },
   {
     emoji: "⚡",
-    title: "Sport-to-Street\nEra",
-    desc: "Track pants styled up with a fitted tee — not gym wear, but the vibe between sport and street is bussin fr fr.",
+    title: "Athleisure",
+    desc: "Track pants styled up with a fitted tee — not gym wear, but the line between sport and street is bussin fr fr.",
     prompt: "Athleisure streetwear outfit, sport meets street energy, baggy track pants styled up with a fitted tee, lowkey bussin",
   },
   {
     emoji: "✈️",
-    title: "Wanderlust But\nMake It Fashion",
-    desc: "Put-together without trying too hard on a long day out — straight-fits and clean tees that travel and slay. Ate that.",
+    title: "Travel & Day Trips",
+    desc: "Put-together without trying too hard on a long day out — clean fits that travel well and slay every stop. Ate that.",
     prompt: "Travel and day trip outfit, comfortable but put-together, straight fits and regular tees that look clean all day, understood the assignment",
   },
 ];
