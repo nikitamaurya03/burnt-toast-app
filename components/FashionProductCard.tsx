@@ -47,15 +47,26 @@ export default function FashionProductCard({ product }: Props) {
   return (
     <article className="group relative flex flex-col bg-white rounded-xl overflow-hidden border border-gray-200 transition-all duration-300 hover:shadow-md hover:border-gray-300">
 
-      {/* Image */}
+      {/* Image — hover swaps to second photo */}
       <Link href={`/product/${product.id}`} className="relative aspect-[3/4] overflow-hidden bg-gray-100 block">
+        {/* Primary image */}
         <Image
           src={product.image}
           alt={product.name}
           fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
+          className="object-cover object-top transition-all duration-500 group-hover:opacity-0"
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
         />
+        {/* Secondary image (shown on hover) */}
+        {product.images?.[1] && (
+          <Image
+            src={product.images[1]}
+            alt={`${product.name} — alternate view`}
+            fill
+            className="object-cover object-top absolute inset-0 opacity-0 transition-all duration-500 group-hover:opacity-100"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          />
+        )}
 
         {/* Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">

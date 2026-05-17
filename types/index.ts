@@ -6,6 +6,7 @@ export interface Product {
   price: number;
   originalPrice?: number;
   image: string;
+  images?: string[];   // all product angles — index 0 = primary
   category: string;
   tags: string[];
   rating: number;

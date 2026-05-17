@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   ArrowLeft, ShoppingBag, Star, Check, Heart,
   Truck, RotateCcw as Returns, Shield, Sparkles,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -51,6 +52,7 @@ export default function ProductPage() {
   const { toggleItem, isWishlisted } = useWishlist();
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [added,        setAdded]        = useState(false);
+  const [activeImg,    setActiveImg]    = useState(0);
   const alreadyInCart = product ? isInCart(product.id) : false;
   const wishlisted    = product ? isWishlisted(product.id) : false;
 
@@ -63,6 +65,7 @@ export default function ProductPage() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
+    setActiveImg(0);
   }, [id]);
 
   if (!product) {
@@ -126,19 +129,23 @@ export default function ProductPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
 
-          {/* ── Left: Product image ─────────────────────────────── */}
-          <div className="relative">
-            <div className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-gray-100 shadow-lg">
+          {/* ── Left: Image gallery ─────────────────────────────── */}
+          <div className="flex flex-col gap-4">
+
+            {/* Main image with prev/next arrows */}
+            <div className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-gray-100 shadow-lg group">
               <Image
-                src={product.image}
-                alt={product.name}
+                key={activeImg}
+                src={(product.images ?? [product.image])[activeImg] ?? product.image}
+                alt={`${product.name} — view ${activeImg + 1}`}
                 fill
-                className="object-cover"
+                className="object-cover object-top transition-opacity duration-300"
                 sizes="(max-width: 1024px) 100vw, 50vw"
-                priority
+                priority={activeImg === 0}
               />
+
               {/* Badges */}
-              <div className="absolute top-4 left-4 flex gap-2">
+              <div className="absolute top-4 left-4 flex gap-2 z-10">
                 {product.isNew && (
                   <span className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-500 text-white shadow">NEW</span>
                 )}
@@ -146,10 +153,64 @@ export default function ProductPage() {
                   <span className="px-3 py-1 text-xs font-bold rounded-full bg-red-500 text-white shadow">{discount}% OFF</span>
                 )}
               </div>
+
+              {/* Image counter */}
+              <div className="absolute bottom-4 right-4 z-10 px-2.5 py-1 rounded-full bg-black/50 text-white text-xs font-semibold backdrop-blur-sm">
+                {activeImg + 1} / {(product.images ?? [product.image]).length}
+              </div>
+
+              {/* Prev arrow */}
+              {activeImg > 0 && (
+                <button
+                  onClick={() => setActiveImg(i => i - 1)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="w-5 h-5 text-gray-800" />
+                </button>
+              )}
+
+              {/* Next arrow */}
+              {activeImg < (product.images ?? [product.image]).length - 1 && (
+                <button
+                  onClick={() => setActiveImg(i => i + 1)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="w-5 h-5 text-gray-800" />
+                </button>
+              )}
             </div>
 
-            {/* Chat CTA below image */}
-            <div className="mt-4 p-4 rounded-2xl bg-gray-50 border border-gray-200 flex items-center gap-3">
+            {/* Thumbnail strip */}
+            {(product.images ?? []).length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {(product.images ?? [product.image]).map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveImg(idx)}
+                    className={clsx(
+                      "relative flex-shrink-0 w-20 h-24 rounded-xl overflow-hidden border-2 transition-all duration-200",
+                      idx === activeImg
+                        ? "border-gray-900 shadow-md"
+                        : "border-gray-200 opacity-60 hover:opacity-100 hover:border-gray-400"
+                    )}
+                    aria-label={`View image ${idx + 1}`}
+                  >
+                    <Image
+                      src={img}
+                      alt={`${product.name} thumbnail ${idx + 1}`}
+                      fill
+                      className="object-cover object-top"
+                      sizes="80px"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Chat CTA below thumbnails */}
+            <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200 flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
