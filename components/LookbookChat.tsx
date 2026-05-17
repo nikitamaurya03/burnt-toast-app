@@ -607,16 +607,16 @@ export default function LookbookChat() {
           <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 760, margin: "0 auto", width: "100%" }}>
 
             {/* Hero card */}
-            <div style={{ background: ACCENT, borderRadius: 20, padding: "32px 28px", textAlign: "center" }}>
+            <div style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 20, padding: "32px 28px", textAlign: "center", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>✨</div>
-              <div style={{ color: "#fff", fontSize: 24, fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New',monospace", letterSpacing: 1 }}>
+              <div style={{ color: TEXT, fontSize: 24, fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New',monospace", letterSpacing: 1 }}>
                 Ask Toastie
               </div>
-              <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 9, fontWeight: 700, marginBottom: 16, letterSpacing: 3, fontFamily: "'Courier New',monospace" }}>
+              <div style={{ color: MUTED, fontSize: 9, fontWeight: 700, marginBottom: 16, letterSpacing: 3, fontFamily: "'Courier New',monospace" }}>
                 YOUR PERSONAL AI STYLIST
               </div>
-              <div style={{ color: "rgba(255,255,255,0.80)", fontSize: 13, lineHeight: 1.85, maxWidth: 440, margin: "0 auto" }}>
-                Drop the <strong style={{ color: "#fff" }}>occasion</strong>, your <strong style={{ color: "#fff" }}>vibe</strong>, or <strong style={{ color: "#fff" }}>budget</strong> — Toastie builds a full shoppable look that absolutely slaps. Every piece from Burnt Toast, no cap. 🛍️
+              <div style={{ color: MUTED, fontSize: 13, lineHeight: 1.85, maxWidth: 440, margin: "0 auto" }}>
+                Drop the <strong style={{ color: TEXT }}>occasion</strong>, your <strong style={{ color: TEXT }}>vibe</strong>, or <strong style={{ color: TEXT }}>budget</strong> — Toastie builds a full shoppable look that absolutely slaps. Every piece from Burnt Toast, no cap. 🛍️
               </div>
             </div>
 
