@@ -149,20 +149,31 @@ function ProductCard({ section, item }: { section: string; item: OutfitItem }) {
     >
       <div style={{ height: 3, background: meta.color }} />
 
+      {/* Portrait image — aspect ratio 3:4 */}
       <div style={{
-        background: CARD, height: 130, display: "flex",
-        alignItems: "center", justifyContent: "center",
-        fontSize: 40, position: "relative", overflow: "hidden",
+        background: CARD,
+        position: "relative",
+        width: "100%",
+        paddingBottom: "133%",   /* 4/3 = 133% — portrait */
+        overflow: "hidden",
+        fontSize: 40,
       }}>
         {item.img && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.img} alt={item.name}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            style={{
+              position: "absolute", inset: 0,
+              width: "100%", height: "100%",
+              objectFit: "cover", objectPosition: "top center",
+            }}
             onError={() => setImgError(true)}
           />
         ) : (
-          <span>{item.emoji}</span>
+          <span style={{
+            position: "absolute", top: "50%", left: "50%",
+            transform: "translate(-50%,-50%)",
+          }}>{item.emoji}</span>
         )}
         <div style={{
           position: "absolute", top: 6, left: 6,
@@ -194,10 +205,10 @@ function ProductCard({ section, item }: { section: string; item: OutfitItem }) {
         </button>
       </div>
 
-      <div style={{ padding: "10px 12px", flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ color: TEXT, fontWeight: 700, fontSize: 12, lineHeight: 1.3 }}>{item.name}</div>
-        <div style={{ color: meta.color, fontWeight: 900, fontSize: 16, fontFamily: "'Courier New',monospace" }}>₹{item.price}</div>
-        <div style={{ color: MUTED, fontSize: 10, lineHeight: 1.5, marginTop: 2 }}>{item.note}</div>
+      <div style={{ padding: "12px 14px", flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
+        <div style={{ color: TEXT, fontWeight: 700, fontSize: 13, lineHeight: 1.35 }}>{item.name}</div>
+        <div style={{ color: meta.color, fontWeight: 900, fontSize: 18, fontFamily: "'Courier New',monospace" }}>₹{item.price}</div>
+        <div style={{ color: MUTED, fontSize: 10, lineHeight: 1.6, marginTop: 1 }}>{item.note}</div>
 
         {/* Add to Cart */}
         <button
@@ -205,8 +216,8 @@ function ProductCard({ section, item }: { section: string; item: OutfitItem }) {
           style={{
             marginTop: "auto",
             width: "100%",
-            padding: "7px 10px",
-            borderRadius: 7,
+            padding: "9px 10px",
+            borderRadius: 8,
             border: "none",
             background: cartAdded || inCart ? ACCENT : "#f3f4f6",
             color: cartAdded || inCart ? "#fff" : TEXT,
@@ -294,7 +305,7 @@ function OutfitBlock({
 
         {/* Product cards */}
         {items.length > 0 ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "stretch" }}>
             {items.map(k => <ProductCard key={k} section={k} item={outfit[k]!} />)}
           </div>
         ) : (
