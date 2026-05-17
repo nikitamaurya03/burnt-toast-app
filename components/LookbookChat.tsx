@@ -637,9 +637,9 @@ function ChatBubble({ data, onQuickReply }: { data: ChatData; onQuickReply: (t: 
 const FOLLOWUP_CHIPS = [
   "Show me more looks",
   "Different vibe",
-  "Keep it under ₹1500",
+  "Show me dresses",
+  "Show me footwear",
   "More streetwear",
-  "Something bolder",
 ];
 
 function FollowUpChips({ onQuickReply }: { onQuickReply: (t: string) => void }) {
