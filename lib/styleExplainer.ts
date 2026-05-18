@@ -25,14 +25,14 @@ export interface StyleNotes {
    Engine aesthetic → trending Gen Z name
    ────────────────────────────────────────────────────────────── */
 const AESTHETIC_TREND_NAME: Record<Aesthetic, string[]> = {
-  "y2k-revival":         ["Y2K Revival", "Coquette Y2K", "Mob Wife Energy"],
+  "y2k-revival":         ["Y2K Revival", "Coquette Y2K"],
   "urban-streetwear":    ["Streetwear Layering", "Gen Z Streetwear", "Utility Streetwear"],
   "smart-casual":        ["Elevated Basics", "Quiet Luxury", "Smart Casual"],
   "minimal-clean":       ["Clean Girl Aesthetic", "Scandi Minimal", "Pinterest Minimal"],
-  "boho-coastal":        ["Coastal Cowgirl", "Tomato Girl Summer", "Boho Coastal"],
+  "boho-coastal":        ["Coastal Cowgirl", "Boho Coastal"],
   "preppy-collegiate":   ["Old Money Prep", "Tomboy Prep", "Coastal Prep"],
-  "athleisure":          ["Athleisure Layering", "Sporty Spice", "Off-Duty Model"],
-  "feminine-romantic":   ["Coquette", "Romantic Coquette", "Soft Girl"],
+  "athleisure":          ["Athleisure", "Active Edit"],
+  "feminine-romantic":   ["Soft Girl"],
 };
 
 function pickTrendName(vibe: Aesthetic, seed: number): string {
@@ -248,13 +248,13 @@ export function explainOutfit(outfit: GeneratedOutfit): StyleNotes {
 function vibeSummaryFor(v: Aesthetic): string {
   switch (v) {
     case "y2k-revival":       return "Bold, retro, statement-coded. Made for being the moment.";
-    case "urban-streetwear":  return "Oversized, layered, effortlessly cool. Off-duty model energy.";
+    case "urban-streetwear":  return "Oversized, layered, effortlessly cool. The kind of fit that does the talking.";
     case "smart-casual":      return "Clean, structured, intentionally polished without trying.";
     case "minimal-clean":     return "Less is more. Pinterest-coded clean girl perfection.";
     case "boho-coastal":      return "Earthy, breezy, vacation-forever vibes.";
     case "preppy-collegiate": return "Tailored, classic, old-money-adjacent.";
     case "athleisure":        return "Sporty-meets-stylish, comfort with intention.";
-    case "feminine-romantic": return "Soft, romantic, lowkey coquette-coded.";
+    case "feminine-romantic": return "Soft, romantic, quietly elevated.";
     default:                  return "Confident, considered, very Pinterest.";
   }
 }
