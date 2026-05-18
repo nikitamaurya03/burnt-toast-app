@@ -8,10 +8,11 @@
  */
 
 import { FashionProduct } from "@/types";
+import { catalogueExtraProducts } from "./catalogueExtra";
 
 const CDN = "https://cdn.shopify.com/s/files/1/0626/4890/9886/files";
 
-export const catalogueProducts: FashionProduct[] = [
+const baseCatalogueProducts: FashionProduct[] = [
 
   /* ══════════════════════════════════════════════════════
      WOMEN — TOPS
@@ -1477,6 +1478,12 @@ export const catalogueProducts: FashionProduct[] = [
     season: ["summer", "spring"],
   },
 
+];
+
+/* ── Merged catalogue: base (women's) + extra (men's + accessories) ── */
+export const catalogueProducts: FashionProduct[] = [
+  ...baseCatalogueProducts,
+  ...catalogueExtraProducts,
 ];
 
 /* ── Quick lookup helpers ──────────────────────────────────────── */

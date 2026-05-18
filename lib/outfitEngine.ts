@@ -88,9 +88,9 @@ function scoreCandidate(
   alreadyPicked: EnrichedProduct[],
   anchor: EnrichedProduct | null,
 ): number {
-  // Hard reject if over budget
+  // Hard reject if over budget (-Infinity so it's truly excluded by the picker)
   const tentativeTotal = alreadyPicked.reduce((s, p) => s + p.price, 0) + candidate.price;
-  if (ctx.budget && tentativeTotal > ctx.budget * 1.05) return -1;
+  if (ctx.budget && tentativeTotal > ctx.budget * 1.05) return -Infinity;
 
   // 1. Aesthetic match — biggest signal
   const aestheticMatch = listAestheticAffinity(candidate.aesthetics, [vibe]);
@@ -156,6 +156,10 @@ function reasonFor(candidate: EnrichedProduct, vibe: Aesthetic): string {
 /* ──────────────────────────────────────────────────────────────
    Pick best candidate for one slot
    ────────────────────────────────────────────────────────────── */
+// Products whose name suggests they're inappropriate for outfit slots
+// (sucker outfits — socks, keychains, packs etc. should never appear)
+const OUTFIT_BLOCKLIST = /\b(sock|keychain|charm pack|pack of \d)\b/i;
+
 function pickForSlot(
   slot: RoleSlot,
   ctx: OutfitContext,
@@ -168,6 +172,7 @@ function pickForSlot(
   const strict = CATALOGUE.filter(p => {
     if (!slot.types.includes(p.product_type)) return false;
     if (usedIds.has(p.id)) return false;
+    if (OUTFIT_BLOCKLIST.test(p.name)) return false;
     if (ctx.gender && ctx.gender !== "unisex" && p.gender && p.gender !== "unisex" && p.gender !== ctx.gender) return false;
     return true;
   });
@@ -177,6 +182,7 @@ function pickForSlot(
   const relaxed = strict.length > 0 ? strict : CATALOGUE.filter(p => {
     if (!slot.types.includes(p.product_type)) return false;
     if (usedIds.has(p.id)) return false;
+    if (OUTFIT_BLOCKLIST.test(p.name)) return false;
     return true;
   });
 
@@ -186,6 +192,8 @@ function pickForSlot(
   let best: EnrichedProduct | null = null;
   for (const c of relaxed) {
     const s = scoreCandidate(c, ctx, vibe, alreadyPicked, anchor);
+    // skip budget violations and any other -Infinity hard rejects
+    if (s === -Infinity) continue;
     if (s > bestScore) { bestScore = s; best = c; }
   }
   return best;
@@ -196,7 +204,10 @@ function pickForSlot(
    ────────────────────────────────────────────────────────────── */
 function pickTemplate(ctx: OutfitContext, anchor: EnrichedProduct | null): RoleSlot[] {
   if (anchor?.product_type === "DRESS") return OUTFIT_TEMPLATES["dress"];
-  // For date-night / wedding lean toward dress occasionally for variety
+  // NEVER use dress template for male users — catalogue has no male dresses
+  // and relaxed-gender would pull a female dress into a male outfit.
+  if (ctx.gender === "male") return OUTFIT_TEMPLATES["two-piece"];
+  // For women only: 45% chance to use dress template for dress-friendly occasions
   const dressOccasions = ["date-night", "wedding", "party"];
   if (
     anchor === null &&

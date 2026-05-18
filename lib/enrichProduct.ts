@@ -13,27 +13,48 @@ import { productUrl } from "./productUrl";
 
 /* ──────────────────────────────────────────────────────────────
    1. product_type from category + name + tags
+   Uses tag-set matching (exact word match) not substring regex to avoid
+   false positives like "spring26" matching /ring/.
    ────────────────────────────────────────────────────────────── */
+const JEWELRY_TAGS = new Set([
+  "necklace","necklaces","pendant","pendants","chain","chains",
+  "earring","earrings","ring","rings","bracelet","bracelets",
+  "jewelry","jewel","jewels","cuff","cuffs","charm","charms",
+  "keychain","keychains","cordbelt","stud","studs",
+]);
+const EYEWEAR_TAGS = new Set(["sunglass","sunglasses","eyewear","shades","glasses"]);
+const HAT_TAGS     = new Set(["hat","hats","cap","caps","beanie","beanies","headband","hatshair"]);
+const WATCH_TAGS   = new Set(["watch","watches"]);
+const BAG_TAGS     = new Set(["bag","bags","tote","totes","backpack","backpacks","pouch","pouches","crossbodybag","clutch","clutches","shoulderbag","handbag"]);
+const SOCKS_KEYWORDS = ["sock","socks"];
+
+function hasAnyTag(tags: string[], set: Set<string>): boolean {
+  return tags.some(t => set.has(t.toLowerCase()));
+}
+
 function inferProductType(p: FashionProduct): ProductType {
   const cat = p.category.toLowerCase();
   const name = p.name.toLowerCase();
-  const tags = (p.tags ?? []).map(t => t.toLowerCase()).join(" ");
-  const all = `${cat} ${name} ${tags}`;
+  const tags = (p.tags ?? []).map(t => t.toLowerCase());
 
-  if (cat === "dresses" || all.includes("dress")) return "DRESS";
-  if (cat === "footwear" || /sneaker|sandal|loafer|trainer|shoe|heel|boot/.test(all)) return "FOOTWEAR";
+  if (cat === "dresses" || /\bdress\b/.test(name)) return "DRESS";
+  if (cat === "footwear" || /\b(sneaker|sandal|loafer|trainer|shoe|heel|boot)/.test(name)) return "FOOTWEAR";
+
   if (cat === "accessories") {
-    if (/sunglass|eyewear|shades/.test(all)) return "EYEWEAR";
-    if (/necklace|pendant|chain|earring|ring|bracelet|jewel/.test(all)) return "JEWELRY";
-    if (/watch/.test(all)) return "WATCH";
-    if (/hat|cap|beanie/.test(all)) return "HAT";
-    return "BAG";
+    // socks have no slot in any outfit template → flag as BAG (gets filtered downstream)
+    if (SOCKS_KEYWORDS.some(k => name.includes(k))) return "BAG";
+    if (hasAnyTag(tags, EYEWEAR_TAGS) || /\bsunglass|\beyewear|\bshades\b/.test(name)) return "EYEWEAR";
+    if (hasAnyTag(tags, HAT_TAGS) || /\bhat\b|\bcap\b|\bbeanie\b|\bheadband\b/.test(name)) return "HAT";
+    if (hasAnyTag(tags, WATCH_TAGS) || /\bwatch\b/.test(name)) return "WATCH";
+    if (hasAnyTag(tags, JEWELRY_TAGS) || /\bnecklace\b|\bbracelet\b|\bearring|\bring\b|\bjewel/.test(name)) return "JEWELRY";
+    if (hasAnyTag(tags, BAG_TAGS) || /\bbag\b|\btote\b|\bbackpack\b|\bpouch\b|\bclutch\b/.test(name)) return "BAG";
+    return "BAG"; // default fallback
   }
   if (cat === "bottoms" || cat === "denims" || cat === "skirts" ||
       /pant|jean|skirt|short|trouser/.test(name)) return "BOTTOM";
   if (cat === "t-shirts" || cat === "tops" ||
-      /tee|shirt|top|blouse|cardigan|sweater|sweatshirt|crop|jacket|coat/.test(name)) return "TOP";
-  return "TOP"; // safe default
+      /tee|shirt|top|blouse|cardigan|sweater|sweatshirt|crop|jacket|coat|hoodie|knit|vest/.test(name)) return "TOP";
+  return "TOP";
 }
 
 /* ──────────────────────────────────────────────────────────────
