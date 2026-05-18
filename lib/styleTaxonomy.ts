@@ -42,8 +42,11 @@ export const COLOR_AFFINITY: Record<ColorFamily, Partial<Record<ColorFamily, num
 
 /* ──────────────────────────────────────────────────────────────
    OCCASION → preferred aesthetics + formality
+   Includes the curator's 28 specific Gen-Z India occasion tags
+   from the xlsx + legacy broad tags as aliases.
    ────────────────────────────────────────────────────────────── */
 export const OCCASION_PROFILE: Record<string, { aesthetics: Aesthetic[]; formality: number; }> = {
+  /* ── Legacy broad tags (kept for backward compatibility) ── */
   "casual":      { aesthetics: ["urban-streetwear", "minimal-clean", "athleisure"],         formality: 2 },
   "college":     { aesthetics: ["urban-streetwear", "preppy-collegiate", "athleisure"],     formality: 2 },
   "brunch":      { aesthetics: ["smart-casual", "minimal-clean", "feminine-romantic"],      formality: 3 },
@@ -57,7 +60,71 @@ export const OCCASION_PROFILE: Record<string, { aesthetics: Aesthetic[]; formali
   "wedding":     { aesthetics: ["feminine-romantic", "smart-casual"],                         formality: 5 },
   "hangout":     { aesthetics: ["urban-streetwear", "minimal-clean"],                         formality: 2 },
   "everyday":    { aesthetics: ["urban-streetwear", "minimal-clean", "athleisure"],          formality: 2 },
+
+  /* ── Curator-specific tags from the xlsx (Gen-Z India occasions) ── */
+  // Casual / daily life
+  "casual-hangout":       { aesthetics: ["urban-streetwear", "minimal-clean", "athleisure"],       formality: 2 },
+  "friends-place":        { aesthetics: ["urban-streetwear", "minimal-clean"],                      formality: 2 },
+  "mall":                 { aesthetics: ["urban-streetwear", "minimal-clean", "preppy-collegiate"], formality: 2 },
+  "dailywear":            { aesthetics: ["urban-streetwear", "minimal-clean", "athleisure"],       formality: 2 },
+  "daily-campus-life":    { aesthetics: ["urban-streetwear", "preppy-collegiate", "athleisure"],   formality: 2 },
+
+  // Café / dining
+  "cafe":                 { aesthetics: ["smart-casual", "minimal-clean", "feminine-romantic"],    formality: 3 },
+  "dinner":               { aesthetics: ["smart-casual", "feminine-romantic", "y2k-revival"],      formality: 4 },
+
+  // College events / fests
+  "college-fest":         { aesthetics: ["y2k-revival", "feminine-romantic", "urban-streetwear"],  formality: 3 },
+  "freshers-night":       { aesthetics: ["y2k-revival", "feminine-romantic", "smart-casual"],      formality: 4 },
+  "music-gig":            { aesthetics: ["y2k-revival", "urban-streetwear", "boho-coastal"],       formality: 3 },
+  "concert":              { aesthetics: ["y2k-revival", "urban-streetwear"],                       formality: 3 },
+  "ipl-screening":        { aesthetics: ["urban-streetwear", "athleisure"],                        formality: 2 },
+  "watching-sports":      { aesthetics: ["athleisure", "urban-streetwear"],                        formality: 2 },
+
+  // Party / nightlife
+  "house-party":          { aesthetics: ["y2k-revival", "feminine-romantic", "urban-streetwear"],  formality: 4 },
+  "clubbing":             { aesthetics: ["y2k-revival", "feminine-romantic"],                      formality: 4 },
+  "birthday-outfit":      { aesthetics: ["y2k-revival", "feminine-romantic", "smart-casual"],      formality: 4 },
+
+  // Formal events
+  "prom":                 { aesthetics: ["feminine-romantic", "smart-casual", "y2k-revival"],      formality: 5 },
+  "farewell":             { aesthetics: ["smart-casual", "feminine-romantic"],                     formality: 4 },
+  "family-office-dinner": { aesthetics: ["smart-casual", "minimal-clean"],                         formality: 4 },
+  "networking":           { aesthetics: ["smart-casual", "minimal-clean", "preppy-collegiate"],    formality: 4 },
+  "internship":           { aesthetics: ["smart-casual", "minimal-clean", "preppy-collegiate"],    formality: 4 },
+  "office":               { aesthetics: ["smart-casual", "minimal-clean"],                         formality: 4 },
+
+  // Travel
+  "airport-look":         { aesthetics: ["athleisure", "smart-casual", "minimal-clean"],           formality: 2 },
+  "travel-day-trip":      { aesthetics: ["athleisure", "minimal-clean", "smart-casual"],           formality: 2 },
+  "vacation-wear":        { aesthetics: ["boho-coastal", "feminine-romantic", "smart-casual"],     formality: 3 },
+
+  // Athletic
+  "athleisure":           { aesthetics: ["athleisure", "urban-streetwear"],                        formality: 1 },
 };
+
+/* ──────────────────────────────────────────────────────────────
+   OCCASION_ALIAS — broad-tag / natural-language → canonical slug
+   Lets users type "party" and have it match house-party + clubbing too.
+   ────────────────────────────────────────────────────────────── */
+export const OCCASION_ALIAS: Record<string, string[]> = {
+  // "party" expands to all party-style occasions
+  "party":       ["party", "house-party", "clubbing", "birthday-outfit"],
+  "festival":    ["festival", "college-fest", "music-gig", "concert", "freshers-night"],
+  "casual":      ["casual", "casual-hangout", "dailywear", "friends-place", "mall", "hangout"],
+  "college":     ["college", "college-fest", "freshers-night", "daily-campus-life"],
+  "work":        ["work", "office", "internship", "networking", "family-office-dinner"],
+  "travel":      ["travel", "airport-look", "travel-day-trip", "vacation-wear"],
+  "active":      ["active", "athleisure", "watching-sports", "ipl-screening"],
+  "date":        ["date-night", "dinner", "cafe"],
+  "date-night":  ["date-night", "dinner", "cafe"],
+};
+
+/** Expand a user-typed occasion into all matching slugs (the slug itself + aliases) */
+export function expandOccasion(occ: string): string[] {
+  const k = occ.toLowerCase().trim();
+  return OCCASION_ALIAS[k] ?? [k];
+}
 
 /* ──────────────────────────────────────────────────────────────
    VIBE LABEL → canonical aesthetic key (for Claude responses)

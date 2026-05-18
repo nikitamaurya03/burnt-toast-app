@@ -32,6 +32,7 @@ import {
   aestheticAffinity,
   colorAffinity,
   listAestheticAffinity,
+  expandOccasion,
 } from "./styleTaxonomy";
 import {
   Aesthetic,
@@ -63,13 +64,22 @@ function clamp01(x: number) { return Math.max(0, Math.min(1, x)); }
 
 function pickAestheticFromOccasion(occasion?: string): Aesthetic {
   if (!occasion) return "urban-streetwear";
-  const profile = OCCASION_PROFILE[occasion.toLowerCase().trim()];
-  return profile?.aesthetics[0] ?? "urban-streetwear";
+  const slugs = expandOccasion(occasion.toLowerCase().trim());
+  for (const s of slugs) {
+    const p = OCCASION_PROFILE[s];
+    if (p) return p.aesthetics[0];
+  }
+  return "urban-streetwear";
 }
 
 function targetFormality(occasion?: string): number {
   if (!occasion) return 3;
-  return OCCASION_PROFILE[occasion.toLowerCase().trim()]?.formality ?? 3;
+  const slugs = expandOccasion(occasion.toLowerCase().trim());
+  for (const s of slugs) {
+    const p = OCCASION_PROFILE[s];
+    if (p) return p.formality;
+  }
+  return 3;
 }
 
 function genderMatch(productGender: string | undefined, target?: string): number {
@@ -111,10 +121,25 @@ function scoreCandidate(
   // 1. Aesthetic match — biggest signal
   const aestheticMatch = listAestheticAffinity(candidate.aesthetics, [vibe]);
 
-  // 2. Occasion match
-  let occasionMatch = 0.5;
-  if (ctx.occasion && OCCASION_PROFILE[ctx.occasion]) {
-    occasionMatch = listAestheticAffinity(candidate.aesthetics, OCCASION_PROFILE[ctx.occasion].aesthetics);
+  // 2. Occasion match — split into two signals so curator-tagged exact match
+  //    can be weighted independently and outrank legacy co-occurrence.
+  let curatedOccasionMatch = 0;     // 1.0 if product was explicitly tagged for this occasion
+  let occasionMatch = 0.5;          // aesthetic-based fallback
+  if (ctx.occasion) {
+    const wantedSlugs = expandOccasion(ctx.occasion);
+    const curated = candidate.curated_occasions ?? [];
+    if (curated.some(o => wantedSlugs.includes(o))) {
+      curatedOccasionMatch = 1.0;
+    }
+    if (OCCASION_PROFILE[ctx.occasion]) {
+      occasionMatch = listAestheticAffinity(candidate.aesthetics, OCCASION_PROFILE[ctx.occasion].aesthetics);
+    } else {
+      for (const slug of wantedSlugs) {
+        if (OCCASION_PROFILE[slug]) {
+          occasionMatch = Math.max(occasionMatch, listAestheticAffinity(candidate.aesthetics, OCCASION_PROFILE[slug].aesthetics));
+        }
+      }
+    }
   }
 
   // 3. Co-occurrence with anchor + already picked items
@@ -161,15 +186,16 @@ function scoreCandidate(
   }
 
   return (
-    0.40 * colorPrefBoost +              // huge weight when user specifies a color
-    0.22 * aestheticMatch +
-    0.15 * occasionMatch +
-    0.10 * coOccurrence +
-    0.10 * colorHarmony +
-    0.07 * formalityFit +
-    0.04 * genderFit +
-    0.02 * popularityBoost +
-    0.02 * jitter
+    0.35 * colorPrefBoost +              // huge weight when user specifies a color
+    0.25 * curatedOccasionMatch +        // huge weight when curator explicitly tagged this product
+    0.16 * aestheticMatch +
+    0.08 * occasionMatch +               // aesthetic-based fallback occasion match
+    0.05 * coOccurrence +                // legacy curated outfits in data/outfits.ts
+    0.05 * colorHarmony +
+    0.03 * formalityFit +
+    0.02 * genderFit +
+    0.01 * popularityBoost +
+    0.01 * jitter
   );
 }
 

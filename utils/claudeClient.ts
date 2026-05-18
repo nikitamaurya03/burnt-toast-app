@@ -57,11 +57,45 @@ When: user wants ONE complete styled look for a specific occasion/vibe
   "next_question": "Want me to switch the vibe or build another?"
 }
 
-occasion: casual | college | brunch | date-night | party | festival | beach | travel | work | active | wedding | hangout | everyday
+occasion: must be ONE of the values below. Pick the most specific match.
+
+  GEN-Z INDIA SPECIFIC (use these whenever user mentions them — exact match wins):
+  - date-night                (dinner date, romantic plans)
+  - casual-hangout            (chilling, kicking back)
+  - cafe                      (coffee meetup, café visit)
+  - brunch                    (brunch with friends)
+  - mall                      (mall trip, shopping)
+  - friends-place             (going to a friend's house)
+  - college-fest              (cultural fest, fest performance)
+  - freshers-night            (first-year welcome party)
+  - farewell                  (farewell party at school/college)
+  - prom                      (prom night)
+  - house-party               (party at someone's place)
+  - clubbing                  (going to a club)
+  - music-gig                 (live music gig)
+  - concert                   (concert)
+  - birthday-outfit           (birthday celebration)
+  - dinner                    (dinner out, family dinner)
+  - daily-campus-life         (going to college daily)
+  - dailywear                 (everyday outfit)
+  - watching-sports           (watching a match)
+  - ipl-screening             (IPL screening party)
+  - office                    (regular office wear)
+  - internship                (internship first day)
+  - networking                (networking event)
+  - family-office-dinner      (formal family dinner)
+  - airport-look              (airport outfit)
+  - travel-day-trip           (one-day trip)
+  - vacation-wear             (vacation, holiday)
+  - athleisure                (gym, active day)
+
+  BROAD LEGACY TAGS (use only when nothing specific fits):
+  - casual | college | party | festival | beach | travel | work | active | wedding | hangout | everyday
+
 vibe:     y2k-revival | urban-streetwear | smart-casual | minimal-clean | boho-coastal | preppy-collegiate | athleisure | feminine-romantic
 gender:   female | male (default female if unstated)
 budget:   number in INR — omit if not stated
-color:    white | black | grey | brown | beige | pink | red | blue | navy | indigo | green | yellow | khaki | sage | multi — set when user mentions a color
+color:    white | black | grey | brown | beige | pink | red | blue | navy | indigo | green | yellow | khaki | sage | rust | burgundy | olive | multi — set when user mentions a color
 anchor_category: Tops | Bottoms | Dresses | Footwear | Accessories — set when user mentions a specific garment ("white DRESS" → anchor_category: "Dresses")
 
 ────────────────────────────────────────────────
@@ -128,12 +162,24 @@ ALWAYS scan for these before picking intent:
   → set the right category/anchor_category
 
 PATTERN EXAMPLES:
-  "any red top?"         → browse, category=Tops, color=red
-  "show me white dress"  → browse, category=Dresses, color=white
-  "i want a black bag"   → browse, category=Accessories, color=black
-  "white dress outfit"   → outfit, anchor_category=Dresses, color=white
-  "red top fit"          → outfit, anchor_category=Tops, color=red
-  "men's blue jeans"     → browse, category=Bottoms, color=blue, gender=male
+  "any red top?"           → browse, category=Tops, color=red
+  "show me white dress"    → browse, category=Dresses, color=white
+  "i want a black bag"     → browse, category=Accessories, color=black
+  "white dress outfit"     → outfit, anchor_category=Dresses, color=white
+  "men's blue jeans"       → browse, category=Bottoms, color=blue, gender=male
+
+  GEN-Z INDIA OCCASION-FIRST EXAMPLES:
+  "outfit for college fest"     → outfit, occasion=college-fest
+  "freshers night fit"          → outfit, occasion=freshers-night
+  "prom dress"                  → outfit, anchor_category=Dresses, occasion=prom
+  "house party look"            → outfit, occasion=house-party
+  "café date look"              → outfit, occasion=cafe
+  "ipl screening fit"           → outfit, occasion=ipl-screening
+  "airport outfit"              → outfit, occasion=airport-look
+  "internship first day"        → outfit, occasion=internship
+  "birthday outfit"             → outfit, occasion=birthday-outfit
+  "vacation wear"               → outfit, occasion=vacation-wear
+  "farewell dress"              → outfit, anchor_category=Dresses, occasion=farewell
 
 ═══════════════════════════════════════════════════════════════
 EXAMPLES OF GOOD MESSAGES (the hype copy)

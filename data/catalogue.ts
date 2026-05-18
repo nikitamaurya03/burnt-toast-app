@@ -9,6 +9,7 @@
 
 import { FashionProduct } from "@/types";
 import { catalogueExtraProducts } from "./catalogueExtra";
+import { catalogueCuratedProducts } from "./catalogueCurated";
 
 const CDN = "https://cdn.shopify.com/s/files/1/0626/4890/9886/files";
 
@@ -1498,7 +1499,9 @@ function dedupeBySku(...lists: FashionProduct[][]): FashionProduct[] {
   return out;
 }
 
+// Order matters: curated FIRST so human-tagged metadata wins on overlapping SKUs
 export const catalogueProducts: FashionProduct[] = dedupeBySku(
+  catalogueCuratedProducts,
   baseCatalogueProducts,
   catalogueExtraProducts,
 );

@@ -159,11 +159,18 @@ function inferBoldness(p: FashionProduct, colorFamily: ColorFamily, aesthetics: 
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Main enrich function — pure, deterministic
+   Main enrich function — pure, deterministic.
+   curated_aesthetics from the xlsx (if present) OVERRIDE auto-derived
+   aesthetics, because human curator judgment > regex pattern matching.
    ────────────────────────────────────────────────────────────── */
 export function enrichProduct(p: FashionProduct): EnrichedProduct {
   const product_type = inferProductType(p);
-  const aesthetics   = inferAesthetics(p);
+  const autoAesthetics = inferAesthetics(p);
+  // Use curator's aesthetics if present, fall back to auto-derived
+  const aesthetics: Aesthetic[] =
+    (p.curated_aesthetics && p.curated_aesthetics.length > 0)
+      ? (p.curated_aesthetics.filter(a => (a as Aesthetic) !== undefined) as Aesthetic[])
+      : autoAesthetics;
   const color_family = inferColorFamily(p);
   const formality    = inferFormality(p, product_type, aesthetics);
   const boldness     = inferBoldness(p, color_family, aesthetics);

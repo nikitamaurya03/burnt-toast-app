@@ -23,6 +23,9 @@ export interface Product {
   color?: string[];
   fabric?: string;
   season?: string[];
+  /* Human-curated tags (from xlsx) — when present these override auto-derived */
+  curated_aesthetics?: string[];
+  curated_occasions?:  string[];
 }
 
 /* ── Extended type — all fashion fields required ──────────────────── */
