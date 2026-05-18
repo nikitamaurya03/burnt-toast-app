@@ -8,6 +8,7 @@ import {
   findAnchorByColorAndCategory,
   CATALOGUE_BY_ID,
 } from "@/lib/outfitEngine";
+import { explainOutfit } from "@/lib/styleExplainer";
 import { GeneratedOutfit, OutfitContext } from "@/types/fashion";
 
 /* ────────────────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ function outfitToChat(o: GeneratedOutfit) {
     outfit,
     total:       o.total_price,
     budget_note: o.budget_note,
+    style_notes: explainOutfit(o),
   };
 }
 

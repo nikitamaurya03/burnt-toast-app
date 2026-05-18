@@ -184,6 +184,15 @@ interface ChatData {
   quick_replies?: string[];
 }
 
+interface StyleNotes {
+  aesthetic_name: string;
+  vibe_summary:   string;
+  color_story:    string;
+  fit_balance:    string;
+  accessory_note: string;
+  day_to_night?:  string;
+}
+
 interface OutfitData {
   type: "outfit";
   message: string;
@@ -193,6 +202,7 @@ interface OutfitData {
   total: number;
   budget_note: string;
   next_question?: string;
+  style_notes?: StyleNotes;
 }
 
 interface LookEntry {
@@ -203,6 +213,7 @@ interface LookEntry {
   outfit: OutfitPair;
   total: number;
   budget_note: string;
+  style_notes?: StyleNotes;
 }
 
 interface MultiData {
@@ -484,9 +495,68 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
   );
 }
 
+/* ── Style Notes panel — the "WHY this works" stylist explanation ── */
+function StyleNotesPanel({ notes }: { notes: StyleNotes }) {
+  const lines: Array<{ icon: string; label: string; text: string }> = [
+    { icon: "🎨", label: "COLOR STORY",   text: notes.color_story },
+    { icon: "✂️",  label: "FIT BALANCE",   text: notes.fit_balance },
+    { icon: "✨", label: "ACCESSORIES",   text: notes.accessory_note },
+  ];
+  if (notes.day_to_night) lines.push({ icon: "🌙", label: "DAY → NIGHT", text: notes.day_to_night });
+
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, #fff7ed 0%, #fef3f2 100%)",
+      border: `1px solid ${BORDER}`,
+      borderRadius: 12,
+      padding: "12px 14px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+    }}>
+      {/* Aesthetic name banner */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        paddingBottom: 8, borderBottom: `1px solid ${BORDER}`,
+      }}>
+        <span style={{ fontSize: 16 }}>✦</span>
+        <div style={{ flex: 1 }}>
+          <div style={{
+            color: TEXT, fontWeight: 900, fontSize: 13,
+            fontFamily: "'Courier New',monospace", letterSpacing: 0.5,
+          }}>
+            {notes.aesthetic_name.toUpperCase()}
+          </div>
+          <div style={{ color: MUTED, fontSize: 11, lineHeight: 1.4, marginTop: 2, fontStyle: "italic" }}>
+            {notes.vibe_summary}
+          </div>
+        </div>
+      </div>
+
+      {/* Reason lines */}
+      {lines.map((line, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <span style={{ fontSize: 13, marginTop: 1, flexShrink: 0 }}>{line.icon}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{
+              color: MUTED, fontSize: 8, fontWeight: 900, letterSpacing: 1.5,
+              fontFamily: "'Courier New',monospace", marginBottom: 2,
+            }}>
+              {line.label}
+            </div>
+            <div style={{ color: TEXT, fontSize: 12, lineHeight: 1.55 }}>
+              {line.text}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ── Single outfit block (reused in both outfit + multi) ─────────── */
 function OutfitBlock({
-  outfit, occasion, vibe, total, budget_note, label,
+  outfit, occasion, vibe, total, budget_note, label, style_notes,
 }: {
   outfit: OutfitPair;
   occasion: string;
@@ -494,6 +564,7 @@ function OutfitBlock({
   total: number;
   budget_note: string;
   label?: string;
+  style_notes?: StyleNotes;
 }) {
   // All available items in display order — every slot is its own key
   // Order: dress first if present (replaces top+bottom), else top → bottom → rest
@@ -593,6 +664,9 @@ function OutfitBlock({
             No products in this look.
           </div>
         )}
+
+        {/* ── Style notes panel — why this works ── */}
+        {style_notes && <StyleNotesPanel notes={style_notes} />}
 
         {/* ── Look-level size picker panel ── */}
         {showLookSizer && (
@@ -808,6 +882,7 @@ function OutfitRenderer({ data, onQuickReply }: { data: OutfitData; onQuickReply
         vibe={data.vibe}
         total={data.total}
         budget_note={data.budget_note}
+        style_notes={data.style_notes}
       />
 
       {data.next_question && (
@@ -849,6 +924,7 @@ function MultiRenderer({ data, onQuickReply }: { data: MultiData; onQuickReply: 
             total={look.total}
             budget_note={look.budget_note}
             label={look.label}
+            style_notes={look.style_notes}
           />
         ))}
       </div>
