@@ -22,10 +22,13 @@ const ACCENT = "#111111";
 const SECTION_META: Record<string, { label: string; color: string }> = {
   top:        { label: "TOP",        color: "#2563EB" },
   bottom:     { label: "BOTTOM",     color: "#0891B2" },
+  dress:      { label: "DRESS",      color: "#DB2777" },
   footwear:   { label: "FOOTWEAR",   color: "#7C3AED" },
   bag:        { label: "BAG",        color: "#B45309" },
   sunglasses: { label: "SUNGLASSES", color: "#059669" },
-  necklace:   { label: "NECKLACE",   color: "#DB2777" },
+  necklace:   { label: "NECKLACE",   color: "#E11D48" },
+  hat:        { label: "HAT",        color: "#0E7490" },
+  watch:      { label: "WATCH",      color: "#475569" },
 };
 
 /* ── Aesthetic identities ────────────────────────────────────────── */
@@ -91,10 +94,13 @@ interface OutfitItem {
 interface OutfitPair {
   top?: OutfitItem;
   bottom?: OutfitItem;
+  dress?: OutfitItem;
   footwear?: OutfitItem;
   bag?: OutfitItem;
   sunglasses?: OutfitItem;
   necklace?: OutfitItem;
+  hat?: OutfitItem;
+  watch?: OutfitItem;
 }
 
 interface ChatData {
@@ -389,7 +395,8 @@ function OutfitBlock({
   label?: string;
 }) {
   // All available items in display order — every slot is its own key
-  const allKeys = (["top", "bottom", "footwear", "bag", "sunglasses", "necklace"] as const).filter(k => outfit?.[k]?.name);
+  // Order: dress first if present (replaces top+bottom), else top → bottom → rest
+  const allKeys = (["dress", "top", "bottom", "footwear", "bag", "sunglasses", "necklace", "hat", "watch"] as const).filter(k => outfit?.[k]?.name);
 
   // Items that need size selection (not "one size")
   const sizableKeys = allKeys.filter(k => {
@@ -973,16 +980,21 @@ export default function LookbookChat() {
 
       const data = await res.json();
 
-      // Try _raw first (full Claude output), then fall back to data.message (may be partial)
-      const parsed = parseRaw(data._raw || "") ?? parseRaw(data.message || "");
+      // The API now returns the fully-shaped renderable response directly.
+      // (Engine runs server-side and builds the outfit/products/multi shape.)
+      // We only fall back to legacy parseRaw if the API response lacks a 'type'.
+      let parsed: ParsedResponse | null = null;
+      if (data && typeof data.type === "string") {
+        parsed = data as ParsedResponse;
+      } else {
+        parsed = parseRaw(data._raw || "") ?? parseRaw(data.message || "");
+      }
 
       if (!parsed) {
-        // Guard: if data.message looks like raw JSON, never show it — use friendly text
         const rawMsg = data.message || "";
         const safeMessage = rawMsg.trimStart().startsWith("{")
           ? "Toastie's brain had a moment — try asking again! No cap it'll hit different next time 😅"
           : (rawMsg || "Something went wrong — try again!");
-
         const fallback: ChatData = { type: "chat", message: safeMessage };
         setMessages(prev => [...prev, { role: "assistant", content: safeMessage, parsed: fallback }]);
       } else {

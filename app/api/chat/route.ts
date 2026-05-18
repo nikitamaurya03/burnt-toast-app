@@ -126,7 +126,15 @@ function resolveIntent(intent: ClaudeIntent) {
 
     case "outfit": {
       const out = buildOutfit(ctx);
-      if (!out) return fallback("buildOutfit returned null");
+      if (!out) {
+        return {
+          type: "chat",
+          message: ctx.gender === "male"
+            ? "Bestie, our men's drop is still cooking 👨‍🍳 — only got jeans + footwear right now. Want me to show you what we DO have, or build something unisex?"
+            : "Couldn't build that exact look fr. Try a different occasion or vibe? Or just say 'show me dresses' / 'show me tops' to browse.",
+          quick_replies: ["👟 Show Footwear", "👗 Show Dresses", "☀️ Casual Look", "💃 Party Look"],
+        };
+      }
       return {
         type: "outfit",
         message: intent.message,
@@ -138,7 +146,13 @@ function resolveIntent(intent: ClaudeIntent) {
     case "multi": {
       const count = params.count ?? 3;
       const outs = buildMultipleOutfits(ctx, count);
-      if (outs.length === 0) return fallback("buildMultipleOutfits empty");
+      if (outs.length === 0) {
+        return {
+          type: "chat",
+          message: "Couldn't find enough options for that fr. Try a different occasion?",
+          quick_replies: ["☀️ Casual Look", "💃 Party Night", "💼 Work Day", "👗 Show Dresses"],
+        };
+      }
       return {
         type: "multi",
         message: intent.message,

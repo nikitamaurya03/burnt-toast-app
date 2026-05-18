@@ -164,19 +164,27 @@ function pickForSlot(
   anchor: EnrichedProduct | null,
   usedIds: Set<string>,
 ): EnrichedProduct | null {
-  const candidates = CATALOGUE.filter(p => {
+  // First pass: strict gender match (prefer products that match the target gender)
+  const strict = CATALOGUE.filter(p => {
     if (!slot.types.includes(p.product_type)) return false;
     if (usedIds.has(p.id)) return false;
-    // gender filter (don't show men's jeans with women's top)
     if (ctx.gender && ctx.gender !== "unisex" && p.gender && p.gender !== "unisex" && p.gender !== ctx.gender) return false;
     return true;
   });
 
-  if (candidates.length === 0) return null;
+  // Fallback: relax gender constraint so under-stocked genders still return an outfit
+  // (gender mismatch still gets penalised by the score, just not hard-excluded)
+  const relaxed = strict.length > 0 ? strict : CATALOGUE.filter(p => {
+    if (!slot.types.includes(p.product_type)) return false;
+    if (usedIds.has(p.id)) return false;
+    return true;
+  });
+
+  if (relaxed.length === 0) return null;
 
   let bestScore = -Infinity;
   let best: EnrichedProduct | null = null;
-  for (const c of candidates) {
+  for (const c of relaxed) {
     const s = scoreCandidate(c, ctx, vibe, alreadyPicked, anchor);
     if (s > bestScore) { bestScore = s; best = c; }
   }
