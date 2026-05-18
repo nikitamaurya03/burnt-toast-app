@@ -38,13 +38,15 @@ function outfitToChat(o: GeneratedOutfit) {
   const outfit: Record<string, unknown> = {};
   for (const slot of o.slots) {
     outfit[slot.role] = {
-      sku:   slot.product.id,
-      name:  slot.product.name,
-      price: slot.product.price,
-      note:  slot.reason,
-      emoji: emojiFor(slot.role),
-      url:   slot.product.url,
-      img:   slot.product.image,
+      sku:    slot.product.id,
+      name:   slot.product.name,
+      price:  slot.product.price,
+      note:   slot.reason,
+      emoji:  emojiFor(slot.role),
+      url:    slot.product.url,
+      img:    slot.product.image,
+      colors: slot.product.color ?? [],
+      color_family: slot.product.color_family,
     };
   }
   return {
@@ -179,6 +181,8 @@ function resolveIntent(intent: ClaudeIntent) {
           img: p.image, url: p.url,
           category: p.category, sizes: p.sizes,
           rating: p.rating, isNew: p.isNew,
+          colors: p.color ?? [],
+          color_family: p.color_family,
         })),
         next_question: intent.next_question,
       };

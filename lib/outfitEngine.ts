@@ -107,13 +107,21 @@ function scoreCandidate(
   for (const p of alreadyPicked) coOccurrence += pairCoOccurrence(p.id, candidate.id) * 0.3;
   coOccurrence = clamp01(coOccurrence);
 
-  // 4. Color harmony with already picked
+  // 4. Color harmony with already picked + small diversity bonus
+  // We want compatible colors but also some variation — pure monochrome outfits
+  // (e.g. 6 earth-tone items) feel boring. Reward at least 2 distinct color families.
   let colorHarmony = 0.7;
   if (alreadyPicked.length > 0) {
     const avg =
       alreadyPicked.reduce((s, p) => s + colorAffinity(candidate.color_family, p.color_family), 0) /
       alreadyPicked.length;
     colorHarmony = avg;
+    // Penalty: if every already-picked item has the same color_family AND this one too,
+    // shave 0.15 off the harmony score (so we lean toward at least one accent piece)
+    const pickedFamilies = new Set(alreadyPicked.map(p => p.color_family));
+    if (pickedFamilies.size === 1 && pickedFamilies.has(candidate.color_family)) {
+      colorHarmony = Math.max(0, colorHarmony - 0.15);
+    }
   }
 
   // 5. Formality fit

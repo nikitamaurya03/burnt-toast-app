@@ -80,6 +80,79 @@ const AESTHETICS = [
   },
 ];
 
+/* ── Color hex map — used by ColorChip + product card swatches ─── */
+const COLOR_HEX: Record<string, string> = {
+  white:      "#FFFFFF",
+  black:      "#1A1A1A",
+  grey:       "#9CA3AF", gray: "#9CA3AF",
+  brown:      "#8B5E3C",
+  darkchocolate: "#3E2723",
+  beige:      "#D4B996",
+  cream:      "#F5F0E1",
+  stone:      "#A8A29E",
+  khaki:      "#A89968",
+  tan:        "#C19A6B",
+  camel:      "#C19A6B",
+  pink:       "#EC4899",
+  winepink:   "#B83280",
+  peach:      "#FFB199",
+  coral:      "#FF7F50",
+  red:        "#DC2626",
+  rust:       "#B7410E",
+  wine:       "#722F37",
+  burgundy:   "#800020",
+  maroon:     "#800000",
+  blue:       "#3B82F6",
+  navy:       "#1E3A8A",
+  midindigo:  "#34568B",
+  indigo:     "#4F46E5",
+  sky:        "#7DD3FC",
+  lilac:      "#C8A2C8",
+  lavender:   "#B57EDC",
+  green:      "#22C55E",
+  sage:       "#9CAF88",
+  olive:      "#7A8450",
+  mint:       "#98FF98",
+  yellow:     "#FACC15",
+  gold:       "#D4AF37",
+  silver:     "#C0C0C0",
+  orange:     "#F97316",
+  cherry:     "#DE3163",
+  multi:      "conic-gradient(from 0deg, #EC4899, #F97316, #FACC15, #22C55E, #3B82F6, #EC4899)",
+  print:      "linear-gradient(135deg, #F87171 25%, #FBBF24 25%, #FBBF24 50%, #34D399 50%, #34D399 75%, #60A5FA 75%)",
+  stripe:     "repeating-linear-gradient(90deg, #1A1A1A 0 5px, #FFFFFF 5px 10px)",
+  striped:    "repeating-linear-gradient(90deg, #1A1A1A 0 5px, #FFFFFF 5px 10px)",
+  floral:     "linear-gradient(135deg, #F472B6, #FBCFE8, #FCA5A5)",
+  checked:    "repeating-conic-gradient(#1A1A1A 0% 25%, #FFFFFF 0% 50%) 50% / 8px 8px",
+};
+
+function colorBg(name: string): string {
+  return COLOR_HEX[name.toLowerCase().replace(/[^a-z]/g, "")] ?? "#9CA3AF";
+}
+
+function ColorChip({ colors, size = 9 }: { colors?: string[]; size?: number }) {
+  if (!colors || colors.length === 0) return null;
+  const primary = colors[0];
+  const bg = colorBg(primary);
+  const label = colors.slice(0, 2).join(" / ");
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: MUTED, lineHeight: 1, fontFamily: "'Courier New',monospace", letterSpacing: 0.5 }}>
+      <span
+        title={label}
+        style={{
+          width: size, height: size, borderRadius: "50%",
+          background: bg,
+          border: primary.toLowerCase().includes("white") || primary.toLowerCase().includes("cream")
+            ? "1px solid #d1d5db"
+            : "1px solid rgba(0,0,0,0.08)",
+          flexShrink: 0,
+        }}
+      />
+      <span style={{ textTransform: "uppercase", fontWeight: 700 }}>{label}</span>
+    </div>
+  );
+}
+
 /* ── Types ───────────────────────────────────────────────────────── */
 interface OutfitItem {
   sku: string;
@@ -89,6 +162,8 @@ interface OutfitItem {
   emoji: string;
   url: string;
   img?: string | null;
+  colors?: string[];
+  color_family?: string;
 }
 
 interface OutfitPair {
@@ -147,6 +222,8 @@ interface ProductsApiItem {
   sizes?: string[];
   rating?: number;
   isNew?: boolean;
+  colors?: string[];
+  color_family?: string;
 }
 
 interface ProductsData {
@@ -308,6 +385,29 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
         >
           <Heart size={11} fill={wishlisted ? "#ef4444" : "none"} color={wishlisted ? "#ef4444" : "#888"} />
         </button>
+
+        {/* Color swatch — bottom-left so it's always visible on the image */}
+        {item.colors && item.colors.length > 0 && (
+          <div
+            title={item.colors.join(" / ")}
+            style={{
+              position: "absolute", bottom: 5, left: 5,
+              display: "flex", alignItems: "center", gap: 3,
+              background: "rgba(255,255,255,0.92)",
+              padding: "2px 5px 2px 3px", borderRadius: 10,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+            }}
+          >
+            <span style={{
+              width: 8, height: 8, borderRadius: "50%",
+              background: colorBg(item.colors[0]),
+              border: /^(white|cream)$/i.test(item.colors[0]) ? "1px solid #d1d5db" : "1px solid rgba(0,0,0,0.1)",
+            }} />
+            <span style={{ fontSize: 8, fontWeight: 800, color: "#111", letterSpacing: 0.3, textTransform: "uppercase", fontFamily: "'Courier New',monospace" }}>
+              {item.colors[0]}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Card body */}
@@ -317,6 +417,7 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
           overflow: "hidden", display: "-webkit-box",
           WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
         }}>{item.name}</div>
+        <ColorChip colors={item.colors} />
         <div style={{ color: meta.color, fontWeight: 900, fontSize: 13, fontFamily: "'Courier New',monospace" }}>₹{item.price}</div>
 
         {/* ADD / ADDED button */}
@@ -765,7 +866,7 @@ function MultiRenderer({ data, onQuickReply }: { data: MultiData; onQuickReply: 
 }
 
 /* ── Mini catalogue card for in-chat product browsing ─────────── */
-function MiniProductCard({ product }: { product: Product }) {
+function MiniProductCard({ product }: { product: Product & { colors?: string[]; url?: string } }) {
   const { addItem, isInCart } = useCart();
   const { toggleItem, isWishlisted } = useWishlist();
   const [added, setAdded] = useState(false);
@@ -774,6 +875,7 @@ function MiniProductCard({ product }: { product: Product }) {
   const needsSize = sizeList[0] !== "one size" && sizeList.length > 1;
   const inCart = isInCart(product.id);
   const wished = isWishlisted(product.id);
+  const productColors = product.colors;
 
   function addWithSize(sz: string) {
     addItem(product, sz);
@@ -821,10 +923,33 @@ function MiniProductCard({ product }: { product: Product }) {
         {product.isNew && (
           <span style={{ position: "absolute", top: 5, left: 5, background: ACCENT, color: "#fff", fontSize: 7, fontWeight: 900, padding: "2px 5px", borderRadius: 3, fontFamily: "'Courier New',monospace", letterSpacing: 1 }}>NEW</span>
         )}
+        {/* Color swatch — bottom-left over image */}
+        {productColors && productColors.length > 0 && (
+          <div
+            title={productColors.join(" / ")}
+            style={{
+              position: "absolute", bottom: 5, left: 5,
+              display: "flex", alignItems: "center", gap: 3,
+              background: "rgba(255,255,255,0.92)",
+              padding: "2px 5px 2px 3px", borderRadius: 10,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+            }}
+          >
+            <span style={{
+              width: 7, height: 7, borderRadius: "50%",
+              background: colorBg(productColors[0]),
+              border: /^(white|cream)$/i.test(productColors[0]) ? "1px solid #d1d5db" : "1px solid rgba(0,0,0,0.1)",
+            }} />
+            <span style={{ fontSize: 7, fontWeight: 800, color: "#111", letterSpacing: 0.3, textTransform: "uppercase", fontFamily: "'Courier New',monospace" }}>
+              {productColors[0]}
+            </span>
+          </div>
+        )}
       </div>
       {/* Body */}
       <div style={{ padding: "7px 8px 9px", display: "flex", flexDirection: "column", gap: 3, flex: 1 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: TEXT, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{product.name}</div>
+        <ColorChip colors={productColors} size={8} />
         <div style={{ fontSize: 12, fontWeight: 900, color: ACCENT, fontFamily: "'Courier New',monospace" }}>₹{product.price.toLocaleString("en-IN")}</div>
         <button onClick={handleCart}
           style={{ marginTop: "auto", width: "100%", padding: "5px 6px", borderRadius: 5, border: "none", background: added || inCart ? "#16a34a" : showSizes ? ACCENT : "#f3f4f6", color: added || inCart || showSizes ? "#fff" : TEXT, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'Courier New',monospace", letterSpacing: 0.8, display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
@@ -849,7 +974,8 @@ function MiniProductCard({ product }: { product: Product }) {
 function ProductsRenderer({ data, onQuickReply }: { data: ProductsData; onQuickReply: (t: string) => void }) {
   // Prefer API-provided products (engine output) — they include the burnt-toast.com URL.
   // Fallback to local catalogue filter if API didn't provide any.
-  const results: Product[] = data.products && data.products.length > 0
+  type ProductWithExtras = Product & { url?: string; colors?: string[] };
+  const results: ProductWithExtras[] = data.products && data.products.length > 0
     ? data.products.map(p => ({
         id: p.sku,
         name: p.name,
@@ -863,10 +989,11 @@ function ProductsRenderer({ data, onQuickReply }: { data: ProductsData; onQuickR
         isNew: p.isNew,
         sizes: p.sizes ?? ["XS", "S", "M", "L", "XL"],
         description: "",
-        // attach the burnt-toast.com URL so click opens the real product page
-        ...(p.url ? { url: p.url } : {}),
-      }) as Product & { url?: string })
-    : chatCategoryFilter(data.category ?? "all", data.gender ?? "all").slice(0, 12);
+        url: p.url,
+        colors: p.colors ?? [],
+      } as ProductWithExtras))
+    : (chatCategoryFilter(data.category ?? "all", data.gender ?? "all").slice(0, 12)
+        .map(p => ({ ...p, colors: p.color ?? [] } as ProductWithExtras)));
 
   const catLabel = data.category === "all" ? "Collection" : data.category;
 
