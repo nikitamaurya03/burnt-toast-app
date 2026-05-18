@@ -131,12 +131,25 @@ interface MultiData {
   next_question?: string;
 }
 
+interface ProductsApiItem {
+  sku: string;
+  name: string;
+  price: number;
+  img: string;
+  url: string;
+  category?: string;
+  sizes?: string[];
+  rating?: number;
+  isNew?: boolean;
+}
+
 interface ProductsData {
   type: "products";
   message: string;
   category: string;
   gender?: string;
   next_question?: string;
+  products?: ProductsApiItem[];   // populated server-side by the engine
 }
 
 type ParsedResponse = ChatData | OutfitData | MultiData | ProductsData;
@@ -240,7 +253,7 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
         boxShadow: showSizes ? `0 0 0 2px ${meta.color}22` : "0 1px 4px rgba(0,0,0,0.05)",
         transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
       }}
-      onClick={() => !showSizes && item.url && window.open(item.url, "_blank")}
+      onClick={() => !showSizes && item.url && window.open(item.url, "_blank", "noopener,noreferrer")}
       onMouseEnter={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 5px 16px rgba(0,0,0,0.10)"; }}}
       onMouseLeave={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.05)"; }}}
     >
@@ -776,7 +789,12 @@ function MiniProductCard({ product }: { product: Product }) {
         cursor: "pointer", minWidth: 130, maxWidth: 150,
         transition: "transform 0.15s, box-shadow 0.15s",
       }}
-      onClick={() => !showSizes && product.id && window.open(`/product/${product.id}`, "_blank")}
+      onClick={() => {
+        if (showSizes) return;
+        const externalUrl = (product as Product & { url?: string }).url;
+        const target = externalUrl || `/product/${product.id}`;
+        window.open(target, "_blank", "noopener,noreferrer");
+      }}
       onMouseEnter={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 5px 16px rgba(0,0,0,0.10)"; } }}
       onMouseLeave={e => { if (!showSizes) { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; } }}
     >
@@ -822,7 +840,26 @@ function MiniProductCard({ product }: { product: Product }) {
 
 /* ── Products renderer — in-chat catalogue browsing ──────────── */
 function ProductsRenderer({ data, onQuickReply }: { data: ProductsData; onQuickReply: (t: string) => void }) {
-  const results = chatCategoryFilter(data.category ?? "all", data.gender ?? "all").slice(0, 12);
+  // Prefer API-provided products (engine output) — they include the burnt-toast.com URL.
+  // Fallback to local catalogue filter if API didn't provide any.
+  const results: Product[] = data.products && data.products.length > 0
+    ? data.products.map(p => ({
+        id: p.sku,
+        name: p.name,
+        brand: "Burnt Toast",
+        price: p.price,
+        image: p.img,
+        category: p.category ?? "",
+        tags: [],
+        rating: p.rating ?? 4.5,
+        reviews: 0,
+        isNew: p.isNew,
+        sizes: p.sizes ?? ["XS", "S", "M", "L", "XL"],
+        description: "",
+        // attach the burnt-toast.com URL so click opens the real product page
+        ...(p.url ? { url: p.url } : {}),
+      }) as Product & { url?: string })
+    : chatCategoryFilter(data.category ?? "all", data.gender ?? "all").slice(0, 12);
 
   const catLabel = data.category === "all" ? "Collection" : data.category;
 
