@@ -1480,11 +1480,28 @@ const baseCatalogueProducts: FashionProduct[] = [
 
 ];
 
-/* ── Merged catalogue: base (women's) + extra (men's + accessories) ── */
-export const catalogueProducts: FashionProduct[] = [
-  ...baseCatalogueProducts,
-  ...catalogueExtraProducts,
-];
+/* ── Merged catalogue: base (women's) + extra (men's + accessories) ──
+   De-duplicated by SKU (first occurrence wins). This protects against
+   the case where a unisex SKU appears in both the men's collection
+   AND the female accessories collection — would otherwise cause
+   React "two children with the same key" warnings in product grids. */
+function dedupeBySku(...lists: FashionProduct[][]): FashionProduct[] {
+  const seen = new Set<string>();
+  const out: FashionProduct[] = [];
+  for (const list of lists) {
+    for (const p of list) {
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+export const catalogueProducts: FashionProduct[] = dedupeBySku(
+  baseCatalogueProducts,
+  catalogueExtraProducts,
+);
 
 /* ── Quick lookup helpers ──────────────────────────────────────── */
 
