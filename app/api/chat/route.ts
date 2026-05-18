@@ -5,6 +5,7 @@ import {
   buildMultipleOutfits,
   browseCategory,
   completeLook,
+  findAnchorByColorAndCategory,
   CATALOGUE_BY_ID,
 } from "@/lib/outfitEngine";
 import { GeneratedOutfit, OutfitContext } from "@/types/fashion";
@@ -27,6 +28,8 @@ interface ClaudeIntent {
     count?: number;
     category?: string;
     anchor_sku?: string;
+    color?: string;
+    anchor_category?: string;
   };
 }
 
@@ -110,12 +113,26 @@ function fallback(reason?: string) {
    ──────────────────────────────────────────────────────────────── */
 function resolveIntent(intent: ClaudeIntent) {
   const params = intent.params ?? {};
+  const colorPref = params.color ? [params.color.toLowerCase()] : undefined;
+
+  // If user said e.g. "white dress" — find the actual white dress and use it as anchor
+  let resolvedAnchorSku = params.anchor_sku;
+  if (!resolvedAnchorSku && params.color && params.anchor_category) {
+    const anchor = findAnchorByColorAndCategory(
+      params.anchor_category,
+      params.color,
+      params.gender,
+    );
+    if (anchor) resolvedAnchorSku = anchor.id;
+  }
+
   const ctx: OutfitContext = {
-    occasion:   params.occasion?.toLowerCase(),
-    vibe:       params.vibe?.toLowerCase(),
-    gender:     (params.gender as "female" | "male" | undefined) ?? "female",
-    budget:     params.budget,
-    anchor_sku: params.anchor_sku,
+    occasion:         params.occasion?.toLowerCase(),
+    vibe:             params.vibe?.toLowerCase(),
+    gender:           (params.gender as "female" | "male" | undefined) ?? "female",
+    budget:           params.budget,
+    anchor_sku:       resolvedAnchorSku,
+    preferred_colors: colorPref,
   };
 
   switch (intent.intent) {
@@ -170,10 +187,44 @@ function resolveIntent(intent: ClaudeIntent) {
     case "browse": {
       const cat = params.category ?? "all";
       const gender = params.gender ?? "female";
-      const prods = browseCategory(cat, { gender, limit: 12 });
+      const requestedColor = params.color?.toLowerCase();
+      // Strict color filter first
+      let prods = browseCategory(cat, {
+        gender,
+        colors: requestedColor ? [requestedColor] : undefined,
+        limit: 12,
+      });
+
+      // HONESTY: if user asked for a color and we have zero, tell them the truth
+      // and show the closest alternatives (same category, any color)
+      if (requestedColor && prods.length === 0) {
+        const fallback = browseCategory(cat, { gender, limit: 8 });
+        return {
+          type: "products",
+          message: `No cap — we don't have any ${requestedColor} ${cat.toLowerCase()} in the Spring 26 drop rn 😅 But here's what IS bussin in ${cat.toLowerCase()}:`,
+          category: cat,
+          gender,
+          products: fallback.map(p => ({
+            sku: p.id, name: p.name, price: p.price,
+            img: p.image, url: p.url,
+            category: p.category, sizes: p.sizes,
+            rating: p.rating, isNew: p.isNew,
+            colors: p.color ?? [],
+            color_family: p.color_family,
+          })),
+          next_question: "Want me to switch to a different color?",
+        };
+      }
+
+      // Adjust message if Claude wrote color-specific copy but we found matches
+      const messageOk = !requestedColor || prods.every(p => p.color?.some(c => c.toLowerCase().includes(requestedColor)));
+      const finalMessage = messageOk
+        ? intent.message
+        : `Here's what we have in ${requestedColor} ${cat.toLowerCase()} — straight heat 🔥`;
+
       return {
         type: "products",
-        message: intent.message,
+        message: finalMessage,
         category: cat,
         gender,
         products: prods.map(p => ({

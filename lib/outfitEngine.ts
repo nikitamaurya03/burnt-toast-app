@@ -81,6 +81,22 @@ function genderMatch(productGender: string | undefined, target?: string): number
 /* ──────────────────────────────────────────────────────────────
    Per-candidate scoring
    ────────────────────────────────────────────────────────────── */
+/* Returns true if the candidate's color list overlaps the wanted colors */
+function colorOverlap(productColors: string[] | undefined, wantedColors: string[] | undefined): boolean {
+  if (!wantedColors || wantedColors.length === 0) return false;
+  if (!productColors || productColors.length === 0) return false;
+  const wantedSet = new Set(wantedColors.map(c => c.toLowerCase().trim()));
+  return productColors.some(c => {
+    const lc = c.toLowerCase().trim();
+    if (wantedSet.has(lc)) return true;
+    // Loose match — e.g. "winepink" matches "pink", "midindigo" matches "indigo"
+    for (const w of wantedSet) {
+      if (lc.includes(w) || w.includes(lc)) return true;
+    }
+    return false;
+  });
+}
+
 function scoreCandidate(
   candidate: EnrichedProduct,
   ctx: OutfitContext,
@@ -137,14 +153,22 @@ function scoreCandidate(
   // 8. Jitter for diversity across re-calls
   const jitter = Math.random();
 
+  // 9. STRONG preferred-color boost — when user says "white dress" / "red top"
+  // this signal dominates so the matching item is almost always picked first.
+  let colorPrefBoost = 0;
+  if (ctx.preferred_colors && ctx.preferred_colors.length > 0) {
+    colorPrefBoost = colorOverlap(candidate.color, ctx.preferred_colors) ? 1.0 : 0;
+  }
+
   return (
-    0.30 * aestheticMatch +
-    0.20 * occasionMatch +
-    0.15 * coOccurrence +
-    0.15 * colorHarmony +
-    0.10 * formalityFit +
-    0.05 * genderFit +
-    0.03 * popularityBoost +
+    0.40 * colorPrefBoost +              // huge weight when user specifies a color
+    0.22 * aestheticMatch +
+    0.15 * occasionMatch +
+    0.10 * coOccurrence +
+    0.10 * colorHarmony +
+    0.07 * formalityFit +
+    0.04 * genderFit +
+    0.02 * popularityBoost +
     0.02 * jitter
   );
 }
@@ -338,10 +362,11 @@ export function completeLook(anchorSku: string, ctx: OutfitContext = {}): Genera
 
 /* ──────────────────────────────────────────────────────────────
    PUBLIC: in-chat browse
+   Now supports color filter — e.g. browseCategory("Tops", { colors: ["red"] })
    ────────────────────────────────────────────────────────────── */
 export function browseCategory(
   category: string,
-  opts: { gender?: string; limit?: number } = {},
+  opts: { gender?: string; colors?: string[]; limit?: number } = {},
 ): EnrichedProduct[] {
   const cat = category.toLowerCase();
   const wantedTypes: Record<string, string[]> = {
@@ -358,9 +383,26 @@ export function browseCategory(
   if (opts.gender && opts.gender !== "all") {
     list = list.filter(p => !p.gender || p.gender === "unisex" || p.gender === opts.gender);
   }
+  // Color filter — strict, returns only matches (caller handles empty case honestly)
+  if (opts.colors && opts.colors.length > 0) {
+    list = list.filter(p => colorOverlap(p.color, opts.colors));
+  }
   // Sort by rating then newness for top-of-list quality
   list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
   return list.slice(0, opts.limit ?? 12);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   PUBLIC: find a single anchor product matching a category + color
+   e.g. "white dress" → finds best matching white dress for use as outfit anchor
+   ────────────────────────────────────────────────────────────── */
+export function findAnchorByColorAndCategory(
+  category: string,
+  color: string,
+  gender?: string,
+): EnrichedProduct | null {
+  const matches = browseCategory(category, { gender, colors: [color], limit: 5 });
+  return matches[0] ?? null;
 }
 
 /* ──────────────────────────────────────────────────────────────
