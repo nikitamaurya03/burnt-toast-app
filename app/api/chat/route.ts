@@ -357,21 +357,22 @@ function resolveIntent(intent: ClaudeIntent, session?: SessionState) {
           quick_replies: ["Top 👕", "Bottom 👖", "Shoes 👟", "Bag 👜", "Accessories ✨"],
         };
       }
-      if (!hasOutfit) {
+      if (!hasOutfit || !session.currentOutfit) {
         return {
           type: "chat",
           message: "Let's build a full look first ✨ Then you can swap any piece — top, bottom, shoes, bag, anything.",
           quick_replies: ["☀️ Casual day", "🌙 Date night", "💃 Party fit", "💼 Office wear", "👗 Show dresses"],
         };
       }
+      const outfitState = session.currentOutfit;
       // Build lock_slots covering everything EXCEPT the slot being replaced
       const altLockSlots: Record<string, string> = {};
-      for (const [role, item] of Object.entries(session.currentOutfit)) {
+      for (const [role, item] of Object.entries(outfitState)) {
         if (role !== replaceSlot && item?.sku) altLockSlots[role] = item.sku;
       }
       const altCtx: OutfitContext = {
         ...ctx,
-        lock_slots: { ...altLockSlots, [replaceSlot]: session.currentOutfit[replaceSlot]?.sku ?? "" },
+        lock_slots: { ...altLockSlots, [replaceSlot]: outfitState[replaceSlot]?.sku ?? "" },
         replace_slot: replaceSlot,
       };
       const alts = getReplaceAlternatives(altCtx, replaceSlot, 4);
@@ -384,7 +385,7 @@ function resolveIntent(intent: ClaudeIntent, session?: SessionState) {
       }
       // Snapshot of locked items so client can render "keeping these" context
       const lockedDisplay: Record<string, { sku: string; name?: string; price?: number; img?: string }> = {};
-      for (const [role, item] of Object.entries(session.currentOutfit)) {
+      for (const [role, item] of Object.entries(outfitState)) {
         if (role !== replaceSlot && item?.sku) lockedDisplay[role] = item;
       }
       return {
