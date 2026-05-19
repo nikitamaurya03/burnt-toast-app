@@ -6,6 +6,8 @@ import {
   browseCategory,
   completeLook,
   findAnchorByColorAndCategory,
+  findSimilar,
+  getReplaceAlternatives,
   CATALOGUE_BY_ID,
 } from "@/lib/outfitEngine";
 import { explainOutfit } from "@/lib/styleExplainer";
@@ -17,7 +19,7 @@ import { GeneratedOutfit, OutfitContext } from "@/types/fashion";
 export interface AnthropicMessage { role: "user" | "assistant"; content: string; }
 
 interface ClaudeIntent {
-  intent: "chat" | "outfit" | "multi" | "browse" | "complete_look";
+  intent: "chat" | "outfit" | "multi" | "browse" | "complete_look" | "replace_options";
   message: string;
   quick_replies?: string[];
   next_question?: string;
@@ -31,7 +33,7 @@ interface ClaudeIntent {
     anchor_sku?: string;
     color?: string;
     anchor_category?: string;
-    replace_slot?: string;       // e.g. "top" — Claude marks which slot to swap
+    replace_slot?: string;
   };
 }
 
@@ -341,6 +343,58 @@ function resolveIntent(intent: ClaudeIntent, session?: SessionState) {
       };
     }
 
+    case "replace_options": {
+      // Returns 3-4 ALTERNATIVE product cards for one slot, while showing
+      // the user's current outfit as locked context. User taps an option
+      // to commit the swap (handled separately via confirm_replacement).
+      const replaceSlot = params.replace_slot;
+      if (!replaceSlot || !session?.currentOutfit) {
+        return {
+          type: "chat",
+          message: "What would you like to change?",
+          quick_replies: ["Top 👕", "Bottom 👖", "Shoes 👟", "Bag 👜", "Accessories ✨"],
+        };
+      }
+      // Build lock_slots covering everything EXCEPT the slot being replaced
+      const altLockSlots: Record<string, string> = {};
+      for (const [role, item] of Object.entries(session.currentOutfit)) {
+        if (role !== replaceSlot && item?.sku) altLockSlots[role] = item.sku;
+      }
+      const altCtx: OutfitContext = {
+        ...ctx,
+        lock_slots: { ...altLockSlots, [replaceSlot]: session.currentOutfit[replaceSlot]?.sku ?? "" },
+        replace_slot: replaceSlot,
+      };
+      const alts = getReplaceAlternatives(altCtx, replaceSlot, 4);
+      if (alts.length === 0) {
+        return {
+          type: "chat",
+          message: `No other ${replaceSlot} options match your current look fr. Want to switch up the vibe instead?`,
+          quick_replies: ["Different vibe ✨", "Show me dresses 👗", "Browse more 🔍"],
+        };
+      }
+      // Snapshot of locked items so client can render "keeping these" context
+      const lockedDisplay: Record<string, { sku: string; name?: string; price?: number; img?: string }> = {};
+      for (const [role, item] of Object.entries(session.currentOutfit)) {
+        if (role !== replaceSlot && item?.sku) lockedDisplay[role] = item;
+      }
+      return {
+        type: "replace_options",
+        message: intent.message,
+        replace_slot: replaceSlot,
+        locked_outfit: lockedDisplay,
+        options: alts.map(p => ({
+          sku: p.id, name: p.name, price: p.price,
+          img: p.image, url: p.url,
+          category: p.category, sizes: p.sizes,
+          rating: p.rating, isNew: p.isNew,
+          colors: p.color ?? [],
+          color_family: p.color_family,
+        })),
+        next_question: intent.next_question,
+      };
+    }
+
     case "complete_look": {
       if (!params.anchor_sku || !CATALOGUE_BY_ID[params.anchor_sku]) {
         return fallback("complete_look without valid anchor_sku");
@@ -375,11 +429,66 @@ export async function POST(req: NextRequest) {
       message,
       history = [],
       session = {},
+      action,
+      action_params,
     }: {
       message: string;
       history: AnthropicMessage[];
       session?: SessionState;
+      action?: string;
+      action_params?: Record<string, unknown>;
     } = body;
+
+    // ─── FAST PATH: client confirms a slot swap by tapping an option card
+    //     → skip Claude entirely, rebuild outfit with all slots locked
+    if (action === "confirm_replacement") {
+      const sel = action_params as { replace_slot: string; selected_sku: string };
+      if (!sel?.replace_slot || !sel?.selected_sku || !session.currentOutfit) {
+        return NextResponse.json(fallback("invalid confirm_replacement payload"), { status: 200 });
+      }
+      const lockSlots: Record<string, string> = {};
+      for (const [role, item] of Object.entries(session.currentOutfit)) {
+        if (role !== sel.replace_slot && item?.sku) lockSlots[role] = item.sku;
+      }
+      lockSlots[sel.replace_slot] = sel.selected_sku;
+      const updated = buildOutfit({
+        occasion: session.userProfile?.occasion,
+        vibe:     session.userProfile?.vibe,
+        gender:   (session.userProfile?.gender as "female" | "male" | undefined) ?? "female",
+        lock_slots: lockSlots,
+        rejected_skus: session.rejectedSkus,
+      });
+      if (!updated) return NextResponse.json(fallback("buildOutfit null on confirm"), { status: 200 });
+      return NextResponse.json({
+        type: "outfit",
+        message: "Locked in 🔥 Your updated look:",
+        ...outfitToChat(updated),
+        next_question: "Refine anything else, or shop the look?",
+      });
+    }
+
+    // ─── FAST PATH: user disliked or wants similar — handled instantly ───
+    if (action === "show_similar") {
+      const sel = action_params as { sku: string };
+      if (!sel?.sku) return NextResponse.json(fallback("missing sku"), { status: 200 });
+      const sims = findSimilar(sel.sku, 6);
+      return NextResponse.json({
+        type: "products",
+        message: "Here are similar vibes ✨",
+        category: "all",
+        gender: session.userProfile?.gender ?? "female",
+        products: sims.map(p => ({
+          sku: p.id, name: p.name, price: p.price,
+          img: p.image, url: p.url,
+          category: p.category, sizes: p.sizes,
+          rating: p.rating, isNew: p.isNew,
+          colors: p.color ?? [],
+          color_family: p.color_family,
+        })),
+        next_question: "See one you like?",
+      });
+    }
+
     if (!message?.trim()) return NextResponse.json({ error: "Empty message" }, { status: 400 });
 
     const client = getAnthropicClient();

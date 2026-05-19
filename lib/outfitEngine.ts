@@ -497,6 +497,54 @@ export function findAnchorByColorAndCategory(
 }
 
 /* ──────────────────────────────────────────────────────────────
+   PUBLIC: get N alternative PRODUCTS for one slot.
+   Used by "change the top" UX — caller has a current outfit and wants
+   4 swap candidates for that slot, keeping the rest locked.
+   ────────────────────────────────────────────────────────────── */
+export function getReplaceAlternatives(
+  ctx: OutfitContext,
+  replaceSlot: string,
+  count = 4,
+): EnrichedProduct[] {
+  // Find what product types fit this slot via the templates
+  const tmpl = ctx.lock_slots && Object.keys(ctx.lock_slots).includes("dress")
+    ? OUTFIT_TEMPLATES["dress"]
+    : OUTFIT_TEMPLATES["two-piece"];
+  const slot = tmpl.find(s => s.role === replaceSlot);
+  if (!slot) return [];
+
+  // What product is currently in that slot (rejected — we want alternatives)?
+  const currentSku = ctx.lock_slots?.[replaceSlot];
+  const rejected = new Set([currentSku, ...(ctx.rejected_skus ?? [])].filter(Boolean) as string[]);
+
+  // Candidates: same product_type, not used, not rejected, gender-matched
+  let candidates = CATALOGUE.filter(p =>
+    slot.types.includes(p.product_type) &&
+    !rejected.has(p.id) &&
+    !OUTFIT_BLOCKLIST.test(p.name) &&
+    (!ctx.gender || ctx.gender === "unisex" || !p.gender || p.gender === "unisex" || p.gender === ctx.gender)
+  );
+
+  // Resolve vibe + "already picked" context for scoring
+  const vibe: Aesthetic = (ctx.vibe && (ctx.vibe as Aesthetic) in AESTHETIC_LABEL)
+    ? (ctx.vibe as Aesthetic)
+    : pickAestheticFromOccasion(ctx.occasion);
+  const lockedProducts: EnrichedProduct[] = Object.entries(ctx.lock_slots ?? {})
+    .filter(([role]) => role !== replaceSlot)
+    .map(([, sku]) => CATALOGUE_BY_ID[sku])
+    .filter(Boolean);
+
+  // Score + sort + take top N
+  const scored = candidates
+    .map(p => ({ p, score: scoreCandidate(p, ctx, vibe, lockedProducts, null) }))
+    .filter(x => x.score !== -Infinity)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, count);
+
+  return scored.map(x => x.p);
+}
+
+/* ──────────────────────────────────────────────────────────────
    PUBLIC: find similar to a product
    ────────────────────────────────────────────────────────────── */
 export function findSimilar(sku: string, limit = 6): EnrichedProduct[] {

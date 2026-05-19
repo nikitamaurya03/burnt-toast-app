@@ -243,10 +243,19 @@ interface ProductsData {
   category: string;
   gender?: string;
   next_question?: string;
-  products?: ProductsApiItem[];   // populated server-side by the engine
+  products?: ProductsApiItem[];
 }
 
-type ParsedResponse = ChatData | OutfitData | MultiData | ProductsData;
+interface ReplaceOptionsData {
+  type: "replace_options";
+  message: string;
+  replace_slot: string;
+  locked_outfit?: Record<string, { sku: string; name?: string; price?: number }>;
+  options: ProductsApiItem[];
+  next_question?: string;
+}
+
+type ParsedResponse = ChatData | OutfitData | MultiData | ProductsData | ReplaceOptionsData;
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -781,7 +790,7 @@ function OutfitBlock({
                 ? <><Check size={13} /> ADDED TO CART!</>
                 : showLookSizer
                   ? <>✕ CANCEL</>
-                  : <><ShoppingBag size={13} /> ADD LOOK TO CART</>
+                  : <><ShoppingBag size={13} /> SHOP THE LOOK</>
               }
             </button>
           </div>
@@ -1112,11 +1121,171 @@ function ProductsRenderer({ data, onQuickReply }: { data: ProductsData; onQuickR
   );
 }
 
+/* ── Replace-options renderer — 3-4 alternative cards for one slot ──
+   User taps a card → onSelectReplacement fires → API confirms swap and
+   the updated full outfit appears as the next chat message.
+   ───────────────────────────────────────────────────────────────── */
+function ReplaceOptionsRenderer({
+  data,
+  onQuickReply,
+  onSelectReplacement,
+}: {
+  data: ReplaceOptionsData;
+  onQuickReply: (t: string) => void;
+  onSelectReplacement: (slot: string, sku: string, name: string) => void;
+}) {
+  const slotMeta = SECTION_META[data.replace_slot] ?? { label: data.replace_slot.toUpperCase(), color: ACCENT };
+  const lockedRoles = Object.keys(data.locked_outfit ?? {});
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Message bubble */}
+      <div style={{
+        background: CARD, border: `1px solid ${BORDER}`,
+        borderRadius: "4px 12px 12px 12px",
+        padding: "12px 16px", color: TEXT, fontSize: 13, lineHeight: 1.65,
+      }}>
+        {data.message}
+      </div>
+
+      {/* "Keeping these" tags */}
+      {lockedRoles.length > 0 && (
+        <div style={{
+          display: "flex", flexWrap: "wrap", alignItems: "center", gap: 5,
+          padding: "6px 10px", background: "#f0fdf4",
+          border: "1px solid #bbf7d0", borderRadius: 8,
+        }}>
+          <span style={{ color: "#15803d", fontSize: 9, fontWeight: 900, fontFamily: "'Courier New',monospace", letterSpacing: 1 }}>
+            ✓ KEEPING
+          </span>
+          {lockedRoles.map(role => {
+            const meta = SECTION_META[role] ?? { label: role.toUpperCase(), color: MUTED };
+            return (
+              <span key={role} style={{
+                background: meta.color, color: "#fff",
+                fontSize: 8, fontWeight: 900, padding: "2px 7px", borderRadius: 3,
+                letterSpacing: 1, fontFamily: "'Courier New',monospace",
+              }}>
+                {meta.label}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Divider */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ flex: 1, height: 1, background: BORDER }} />
+        <span style={{ color: slotMeta.color, fontSize: 9, fontWeight: 900, letterSpacing: 3, fontFamily: "'Courier New',monospace", whiteSpace: "nowrap" }}>
+          {data.options.length} NEW {slotMeta.label} OPTIONS
+        </span>
+        <div style={{ flex: 1, height: 1, background: BORDER }} />
+      </div>
+
+      {/* Option cards — horizontal scroll */}
+      <div style={{ overflowX: "auto", paddingBottom: 6 }}>
+        <div style={{ display: "flex", gap: 8, minWidth: "max-content" }}>
+          {data.options.map(p => (
+            <ReplaceOptionCard
+              key={p.sku}
+              product={p}
+              slotColor={slotMeta.color}
+              onChoose={() => onSelectReplacement(data.replace_slot, p.sku, p.name)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {data.next_question && (
+        <div style={{ color: MUTED, fontSize: 12, fontStyle: "italic", padding: "8px 14px", borderLeft: `3px solid ${BORDER}`, lineHeight: 1.6 }}>
+          {data.next_question}
+        </div>
+      )}
+
+      <FollowUpChips onQuickReply={onQuickReply} />
+    </div>
+  );
+}
+
+function ReplaceOptionCard({
+  product,
+  slotColor,
+  onChoose,
+}: {
+  product: ProductsApiItem;
+  slotColor: string;
+  onChoose: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const { toggleItem, isWishlisted } = useWishlist();
+  const wished = isWishlisted(product.sku);
+
+  function openOriginal(e: React.MouseEvent) {
+    e.stopPropagation();
+    window.open(product.url, "_blank", "noopener,noreferrer");
+  }
+
+  return (
+    <div
+      onClick={onChoose}
+      style={{
+        background: BG, border: `2px solid ${BORDER}`, borderRadius: 10,
+        overflow: "hidden", display: "flex", flexDirection: "column",
+        minWidth: 145, maxWidth: 170, cursor: "pointer",
+        transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 6px 18px rgba(0,0,0,0.12)"; e.currentTarget.style.borderColor = slotColor; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; e.currentTarget.style.borderColor = BORDER; }}
+    >
+      <div style={{ height: 3, background: slotColor }} />
+      <div style={{ position: "relative", width: "100%", paddingBottom: "120%", background: CARD, overflow: "hidden" }}>
+        {product.img && !imgError ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={product.img} alt={product.name}
+            onError={() => setImgError(true)}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+        ) : (
+          <span style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 24 }}>👚</span>
+        )}
+        {/* Wishlist */}
+        <button onClick={e => { e.stopPropagation(); toggleItem({ id: product.sku, name: product.name, brand: "Burnt Toast", price: product.price, image: product.img, category: "", tags: [], rating: 0, reviews: 0, sizes: product.sizes ?? [], description: "" }); }}
+          style={{ position: "absolute", top: 5, right: 5, width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,0.92)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Heart size={10} fill={wished ? "#ef4444" : "none"} color={wished ? "#ef4444" : "#888"} />
+        </button>
+        {/* Color swatch */}
+        {product.colors && product.colors.length > 0 && (
+          <div style={{ position: "absolute", bottom: 5, left: 5, display: "flex", alignItems: "center", gap: 3, background: "rgba(255,255,255,0.92)", padding: "2px 5px 2px 3px", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.15)" }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: colorBg(product.colors[0]), border: /^(white|cream)$/i.test(product.colors[0]) ? "1px solid #d1d5db" : "1px solid rgba(0,0,0,0.1)" }} />
+            <span style={{ fontSize: 7, fontWeight: 800, color: "#111", letterSpacing: 0.3, textTransform: "uppercase", fontFamily: "'Courier New',monospace" }}>{product.colors[0]}</span>
+          </div>
+        )}
+      </div>
+      <div style={{ padding: "7px 8px 9px", display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: TEXT, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{product.name}</div>
+        <div style={{ fontSize: 12, fontWeight: 900, color: slotColor, fontFamily: "'Courier New',monospace" }}>₹{product.price.toLocaleString("en-IN")}</div>
+        <button onClick={(e) => { e.stopPropagation(); onChoose(); }}
+          style={{ marginTop: "auto", width: "100%", padding: "6px 6px", borderRadius: 6, border: "none", background: slotColor, color: "#fff", fontSize: 9, fontWeight: 900, cursor: "pointer", fontFamily: "'Courier New',monospace", letterSpacing: 0.8, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+          ✓ CHOOSE THIS
+        </button>
+        <button onClick={openOriginal}
+          style={{ width: "100%", padding: "4px 6px", borderRadius: 5, border: `1px solid ${BORDER}`, background: BG, color: MUTED, fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "'Courier New',monospace", letterSpacing: 0.6 }}>
+          👀 VIEW MORE
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ── Smart dispatcher ────────────────────────────────────────────── */
-function ResponseRenderer({ data, onQuickReply }: { data: ParsedResponse; onQuickReply: (t: string) => void }) {
+function ResponseRenderer({ data, onQuickReply, onSelectReplacement }: {
+  data: ParsedResponse;
+  onQuickReply: (t: string) => void;
+  onSelectReplacement: (slot: string, sku: string, name: string) => void;
+}) {
   if (data.type === "chat") return <ChatBubble data={data} onQuickReply={onQuickReply} />;
   if (data.type === "multi") return <MultiRenderer data={data} onQuickReply={onQuickReply} />;
   if (data.type === "products") return <ProductsRenderer data={data as ProductsData} onQuickReply={onQuickReply} />;
+  if (data.type === "replace_options") return <ReplaceOptionsRenderer data={data} onQuickReply={onQuickReply} onSelectReplacement={onSelectReplacement} />;
   return <OutfitRenderer data={data as OutfitData} onQuickReply={onQuickReply} />;
 }
 
@@ -1220,22 +1389,40 @@ export default function LookbookChat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  const send = async (text?: string) => {
-    const query = (text ?? input).trim();
-    if (!query || loading) return;
-    setInput("");
+  /** User tapped one of the 3-4 alternative cards in a replace_options grid */
+  const handleSelectReplacement = (slot: string, sku: string, name: string) => {
+    send("", {
+      action: "confirm_replacement",
+      actionParams: { replace_slot: slot, selected_sku: sku },
+      userBubble: `Going with "${name}" ✓`,
+    });
+  };
 
-    const userMsg: ChatMessage = { role: "user", content: query };
-    setMessages(prev => [...prev, userMsg]);
+  const send = async (text?: string, opts?: { action?: string; actionParams?: Record<string, unknown>; userBubble?: string }) => {
+    const query = (text ?? input).trim();
+    if (!query && !opts?.action) return;
+    if (loading) return;
+    if (!opts?.action) setInput("");
+
+    // Show a user-side bubble unless explicitly suppressed
+    const bubbleText = opts?.userBubble ?? query;
+    if (bubbleText) {
+      const userMsg: ChatMessage = { role: "user", content: bubbleText };
+      setMessages(prev => [...prev, userMsg]);
+    }
     setLoading(true);
 
     try {
-      // Keep only last 10 messages to avoid context bloat on long conversations
       const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: query, history, session }),
+        body: JSON.stringify({
+          message: query || "(action)",
+          history,
+          session,
+          ...(opts?.action ? { action: opts.action, action_params: opts.actionParams } : {}),
+        }),
       });
 
       const data = await res.json();
@@ -1449,7 +1636,7 @@ export default function LookbookChat() {
             <div style={{ flex: msg.role === "assistant" ? 1 : undefined }}>
               {msg.role === "assistant" ? (
                 msg.parsed
-                  ? <ResponseRenderer data={msg.parsed} onQuickReply={send} />
+                  ? <ResponseRenderer data={msg.parsed} onQuickReply={(t) => send(t)} onSelectReplacement={handleSelectReplacement} />
                   : (
                     <div style={{
                       background: CARD, border: `1px solid ${BORDER}`,

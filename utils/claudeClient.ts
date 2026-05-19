@@ -183,6 +183,37 @@ INTENT: "browse" — show products in a category
 }
 
 ────────────────────────────────────────────────
+INTENT: "replace_options" — show 3-4 ALTERNATIVES for ONE slot
+USE THIS instead of "outfit" with replace_slot whenever the user wants to
+swap a single piece. Returns option CARDS the user picks from — does NOT
+auto-regenerate the outfit. Other slots stay locked.
+────────────────────────────────────────────────
+{
+  "intent": "replace_options",
+  "message": "1 short sentence: \"Keeping the rest — pick a new top ✨\"",
+  "params": { "replace_slot": "top" },
+  "next_question": "Tap one to swap it in."
+}
+
+Triggers (when SESSION MEMORY shows a current outfit):
+  "change the top"            → replace_options, replace_slot=top
+  "show another top"          → replace_options, replace_slot=top
+  "different top"             → replace_options, replace_slot=top
+  "more top options"          → replace_options, replace_slot=top
+  "don't like the shoes"      → replace_options, replace_slot=footwear
+  "different sneakers"        → replace_options, replace_slot=footwear
+  "change the bag"            → replace_options, replace_slot=bag
+  "show another bag"          → replace_options, replace_slot=bag
+  "different necklace"        → replace_options, replace_slot=necklace
+  "another accessory"         → replace_options, replace_slot=necklace
+  "show me 3 different tops"  → replace_options, replace_slot=top
+  "swap the dress"            → replace_options, replace_slot=dress
+
+ALWAYS acknowledge what stays the same in the message:
+  GOOD: "Keeping your jeans, sneakers, and bag — here are some new tops ✨"
+  BAD:  "Here are some tops" (doesn't reassure user the rest is locked)
+
+────────────────────────────────────────────────
 INTENT: "complete_look" — build outfit around a specific product
 ────────────────────────────────────────────────
 {
@@ -304,34 +335,34 @@ Session memory: outfit on screen has top=White Tee, bottom=Brown Pants,
 
 User: "change the top"
 → {
-    "intent": "outfit",
-    "message": "Keeping the bottom + shoes + bag — swapping just the top ✨",
+    "intent": "replace_options",
+    "message": "Keeping the bottom, shoes + bag — pick a new top ✨",
     "params": { "replace_slot": "top" },
-    "next_question": "Want this one or another option?"
+    "next_question": "Tap one to swap it in."
   }
 
 User: "I don't like the shoes"
 → {
-    "intent": "outfit",
-    "message": "Got you — switching the footwear, rest stays the same.",
+    "intent": "replace_options",
+    "message": "Switching the footwear — rest stays as is.",
     "params": { "replace_slot": "footwear" },
-    "next_question": "Want a different style — boots or heels?"
+    "next_question": "Pick one or want something completely different?"
   }
 
 User: "show me 3 different tops"
 → {
-    "intent": "multi",
+    "intent": "replace_options",
     "message": "Three new tops, everything else stays ✨",
-    "params": { "replace_slot": "top", "count": 3 },
-    "next_question": "Which one's hitting?"
+    "params": { "replace_slot": "top" },
+    "next_question": "Which one's calling you?"
   }
 
 User: "different bag"
 → {
-    "intent": "outfit",
-    "message": "Bag swap incoming — keeping the rest of the look 👜",
+    "intent": "replace_options",
+    "message": "Bag swap incoming — keeping the rest 👜",
     "params": { "replace_slot": "bag" },
-    "next_question": "Want a tote next or a crossbody?"
+    "next_question": "Tote, crossbody, or something else?"
   }
 
 User (after replacement): "I like this top"
