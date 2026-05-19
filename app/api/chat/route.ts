@@ -348,11 +348,20 @@ function resolveIntent(intent: ClaudeIntent, session?: SessionState) {
       // the user's current outfit as locked context. User taps an option
       // to commit the swap (handled separately via confirm_replacement).
       const replaceSlot = params.replace_slot;
-      if (!replaceSlot || !session?.currentOutfit) {
+      // Guard: no replace_slot OR no current outfit yet → friendly fallback
+      const hasOutfit = session?.currentOutfit && Object.keys(session.currentOutfit).length > 0;
+      if (!replaceSlot) {
         return {
           type: "chat",
           message: "What would you like to change?",
           quick_replies: ["Top 👕", "Bottom 👖", "Shoes 👟", "Bag 👜", "Accessories ✨"],
+        };
+      }
+      if (!hasOutfit) {
+        return {
+          type: "chat",
+          message: "Let's build a full look first ✨ Then you can swap any piece — top, bottom, shoes, bag, anything.",
+          quick_replies: ["☀️ Casual day", "🌙 Date night", "💃 Party fit", "💼 Office wear", "👗 Show dresses"],
         };
       }
       // Build lock_slots covering everything EXCEPT the slot being replaced
