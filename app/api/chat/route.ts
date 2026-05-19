@@ -31,7 +31,21 @@ interface ClaudeIntent {
     anchor_sku?: string;
     color?: string;
     anchor_category?: string;
+    replace_slot?: string;       // e.g. "top" — Claude marks which slot to swap
   };
+}
+
+interface SessionState {
+  currentOutfit?: Record<string, { sku: string; name?: string; price?: number }>;
+  userProfile?: {
+    gender?: string;
+    occasion?: string;
+    vibe?: string;
+    color?: string;
+    budget?: number;
+  };
+  rejectedSkus?: string[];
+  likedSkus?: string[];
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -79,6 +93,69 @@ function emojiFor(role: string): string {
 }
 
 /* ────────────────────────────────────────────────────────────────
+   Build the session-memory context block that gets appended to
+   Claude's system prompt. Lets Claude know what's already on
+   screen + what the user already said, so it can:
+     • detect replacement intents ("change the top")
+     • not re-ask info that's already known
+     • respect the user's running profile
+   ──────────────────────────────────────────────────────────────── */
+function buildSessionContextMessage(session: SessionState): string {
+  const lines: string[] = [];
+  const profile = session.userProfile ?? {};
+  const outfit = session.currentOutfit ?? {};
+  const rejected = session.rejectedSkus ?? [];
+  const liked = session.likedSkus ?? [];
+
+  const hasAnyState = Object.keys(profile).length > 0
+    || Object.keys(outfit).length > 0
+    || rejected.length > 0
+    || liked.length > 0;
+  if (!hasAnyState) return "";
+
+  lines.push("═══════════════════════════════════════════════════════════════");
+  lines.push("CURRENT SESSION MEMORY (DO NOT RE-ASK THIS — IT'S ALREADY KNOWN)");
+  lines.push("═══════════════════════════════════════════════════════════════");
+
+  if (Object.keys(profile).length > 0) {
+    lines.push("USER PROFILE:");
+    if (profile.gender)   lines.push(`  • Shopping for: ${profile.gender}`);
+    if (profile.occasion) lines.push(`  • Occasion: ${profile.occasion}`);
+    if (profile.vibe)     lines.push(`  • Vibe: ${profile.vibe}`);
+    if (profile.color)    lines.push(`  • Color preference: ${profile.color}`);
+    if (profile.budget)   lines.push(`  • Budget: ₹${profile.budget}`);
+  }
+
+  if (Object.keys(outfit).length > 0) {
+    lines.push("CURRENT OUTFIT ON SCREEN:");
+    for (const [role, item] of Object.entries(outfit)) {
+      if (item?.sku) lines.push(`  • ${role}: ${item.name ?? "(item)"} [SKU ${item.sku}]`);
+    }
+    lines.push("");
+    lines.push("REPLACEMENT DETECTION:");
+    lines.push("If user wants to change ONLY ONE slot of the outfit, set params.replace_slot");
+    lines.push("to the role they want changed. Examples:");
+    lines.push("  'change the top' / 'different top' / 'another top'    → replace_slot: 'top'");
+    lines.push("  'don't like the shoes' / 'different sneakers'         → replace_slot: 'footwear'");
+    lines.push("  'change the bag' / 'show another bag'                 → replace_slot: 'bag'");
+    lines.push("  'different necklace' / 'another accessory'            → replace_slot: 'necklace'");
+    lines.push("  'show me 3 different tops' (variety)                  → intent='multi', replace_slot: 'top'");
+    lines.push("Inherit occasion/vibe/gender from the profile above — DON'T re-ask.");
+    lines.push("Acknowledge what stays: \"Keeping your [bottom + footwear + bag], here's a new top.\"");
+  }
+
+  if (rejected.length > 0) {
+    lines.push(`REJECTED SKUs (DON'T re-suggest): ${rejected.join(", ")}`);
+  }
+  if (liked.length > 0) {
+    lines.push(`LIKED SKUs (boost similar): ${liked.join(", ")}`);
+  }
+
+  lines.push("═══════════════════════════════════════════════════════════════");
+  return lines.join("\n");
+}
+
+/* ────────────────────────────────────────────────────────────────
    Parse Claude's intent response safely
    ──────────────────────────────────────────────────────────────── */
 function parseIntent(raw: string): ClaudeIntent | null {
@@ -113,7 +190,7 @@ function fallback(reason?: string) {
 /* ────────────────────────────────────────────────────────────────
    Resolve Claude intent → final structured response via the engine
    ──────────────────────────────────────────────────────────────── */
-function resolveIntent(intent: ClaudeIntent) {
+function resolveIntent(intent: ClaudeIntent, session?: SessionState) {
   const params = intent.params ?? {};
   const colorPref = params.color ? [params.color.toLowerCase()] : undefined;
 
@@ -123,18 +200,41 @@ function resolveIntent(intent: ClaudeIntent) {
     const anchor = findAnchorByColorAndCategory(
       params.anchor_category,
       params.color,
-      params.gender,
+      params.gender ?? session?.userProfile?.gender,
     );
     if (anchor) resolvedAnchorSku = anchor.id;
   }
 
+  // ─── Build lock_slots from currentOutfit when replace_slot is set ───
+  // e.g. user says "change the top" → Claude returns replace_slot="top"
+  //      → we auto-lock every OTHER slot from currentOutfit so engine only
+  //        swaps the requested slot, keeping the rest of the look intact.
+  let lockSlots: Record<string, string> | undefined;
+  if (params.replace_slot && session?.currentOutfit) {
+    lockSlots = {};
+    for (const [role, item] of Object.entries(session.currentOutfit)) {
+      if (role !== params.replace_slot && item?.sku) {
+        lockSlots[role] = item.sku;
+      }
+    }
+  }
+
+  // ─── Inherit session profile when params don't specify ───
+  const sessionGender = (session?.userProfile?.gender as "female" | "male" | undefined);
+  const sessionOccasion = session?.userProfile?.occasion;
+  const sessionVibe = session?.userProfile?.vibe;
+  const sessionBudget = session?.userProfile?.budget;
+
   const ctx: OutfitContext = {
-    occasion:         params.occasion?.toLowerCase(),
-    vibe:             params.vibe?.toLowerCase(),
-    gender:           (params.gender as "female" | "male" | undefined) ?? "female",
-    budget:           params.budget,
+    occasion:         params.occasion?.toLowerCase() ?? sessionOccasion,
+    vibe:             params.vibe?.toLowerCase() ?? sessionVibe,
+    gender:           (params.gender as "female" | "male" | undefined) ?? sessionGender ?? "female",
+    budget:           params.budget ?? sessionBudget,
     anchor_sku:       resolvedAnchorSku,
     preferred_colors: colorPref,
+    lock_slots:       lockSlots,
+    rejected_skus:    session?.rejectedSkus,
+    replace_slot:     params.replace_slot,
   };
 
   switch (intent.intent) {
@@ -271,10 +371,24 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { message, history = [] }: { message: string; history: AnthropicMessage[] } = body;
+    const {
+      message,
+      history = [],
+      session = {},
+    }: {
+      message: string;
+      history: AnthropicMessage[];
+      session?: SessionState;
+    } = body;
     if (!message?.trim()) return NextResponse.json({ error: "Empty message" }, { status: 400 });
 
     const client = getAnthropicClient();
+
+    // ─── Build a session-context system message so Claude knows what's
+    //     already on screen and what the user already told us ───
+    const sessionContext = buildSessionContextMessage(session);
+    const systemPrompt = sessionContext ? SYSTEM_PROMPT + "\n\n" + sessionContext : SYSTEM_PROMPT;
+
     const messages: AnthropicMessage[] = [
       ...history,
       { role: "user", content: message.trim() },
@@ -282,9 +396,9 @@ export async function POST(req: NextRequest) {
 
     const response = await client.messages.create({
       model: "claude-haiku-4-5",
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages,
-      max_tokens: 600, // small now — Claude only returns intent + copy
+      max_tokens: 600,
     });
 
     const rawText = response.content
@@ -297,7 +411,7 @@ export async function POST(req: NextRequest) {
     const intent = parseIntent(rawText);
     if (!intent) return NextResponse.json(fallback("intent parse failed"), { status: 200 });
 
-    const resolved = resolveIntent(intent);
+    const resolved = resolveIntent(intent, session);
     return NextResponse.json({ ...resolved, _raw: rawText });
 
   } catch (error: unknown) {

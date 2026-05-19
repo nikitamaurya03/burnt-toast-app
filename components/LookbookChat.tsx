@@ -1152,10 +1152,67 @@ function parseRaw(raw: string): ParsedResponse | null {
 }
 
 /* ── Main component ──────────────────────────────────────────────── */
+/* ── Session memory: outfit state + user profile across turns ── */
+interface SessionState {
+  currentOutfit: Record<string, { sku: string; name?: string; price?: number }>;
+  userProfile: {
+    gender?: string;
+    occasion?: string;
+    vibe?: string;
+    color?: string;
+    budget?: number;
+  };
+  rejectedSkus: string[];
+  likedSkus: string[];
+}
+
+const EMPTY_SESSION: SessionState = {
+  currentOutfit: {},
+  userProfile: {},
+  rejectedSkus: [],
+  likedSkus: [],
+};
+
+/** Pull the latest outfit and profile bits from a parsed assistant response */
+function deriveSessionUpdate(parsed: ParsedResponse, prev: SessionState): SessionState {
+  const next: SessionState = {
+    currentOutfit: { ...prev.currentOutfit },
+    userProfile: { ...prev.userProfile },
+    rejectedSkus: [...prev.rejectedSkus],
+    likedSkus: [...prev.likedSkus],
+  };
+  // OUTFIT → store all slots as current
+  if (parsed.type === "outfit") {
+    const outfit = parsed.outfit ?? {};
+    const newOutfit: SessionState["currentOutfit"] = {};
+    for (const role of Object.keys(outfit) as Array<keyof OutfitPair>) {
+      const item = outfit[role];
+      if (item?.sku) newOutfit[role as string] = { sku: item.sku, name: item.name, price: item.price };
+    }
+    next.currentOutfit = newOutfit;
+    if (parsed.occasion) next.userProfile.occasion = parsed.occasion;
+    if (parsed.vibe)     next.userProfile.vibe = parsed.vibe;
+  }
+  // MULTI → take the FIRST look as the "current" outfit (user can swap by tapping)
+  if (parsed.type === "multi" && parsed.looks?.[0]) {
+    const outfit = parsed.looks[0].outfit ?? {};
+    const newOutfit: SessionState["currentOutfit"] = {};
+    for (const role of Object.keys(outfit) as Array<keyof OutfitPair>) {
+      const item = outfit[role];
+      if (item?.sku) newOutfit[role as string] = { sku: item.sku, name: item.name, price: item.price };
+    }
+    next.currentOutfit = newOutfit;
+    if (parsed.looks[0].occasion) next.userProfile.occasion = parsed.looks[0].occasion;
+    if (parsed.looks[0].vibe)     next.userProfile.vibe = parsed.looks[0].vibe;
+  }
+  return next;
+}
+
 export default function LookbookChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput]       = useState("");
   const [loading, setLoading]   = useState(false);
+  const [session, setSession]   = useState<SessionState>(EMPTY_SESSION);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
 
@@ -1178,14 +1235,11 @@ export default function LookbookChat() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: query, history }),
+        body: JSON.stringify({ message: query, history, session }),
       });
 
       const data = await res.json();
 
-      // The API now returns the fully-shaped renderable response directly.
-      // (Engine runs server-side and builds the outfit/products/multi shape.)
-      // We only fall back to legacy parseRaw if the API response lacks a 'type'.
       let parsed: ParsedResponse | null = null;
       if (data && typeof data.type === "string") {
         parsed = data as ParsedResponse;
@@ -1202,6 +1256,8 @@ export default function LookbookChat() {
         setMessages(prev => [...prev, { role: "assistant", content: safeMessage, parsed: fallback }]);
       } else {
         setMessages(prev => [...prev, { role: "assistant", content: data.message || "", parsed }]);
+        // Update session memory with anything new from this response
+        setSession(prev => deriveSessionUpdate(parsed!, prev));
       }
     } catch {
       const fallback: ChatData = { type: "chat", message: "Couldn't connect — try again!" };
@@ -1242,7 +1298,7 @@ export default function LookbookChat() {
           </div>
           {messages.length > 0 && (
             <button
-              onClick={() => setMessages([])}
+              onClick={() => { setMessages([]); setSession(EMPTY_SESSION); }}
               title="Start a new chat"
               style={{
                 background: "transparent", border: `1px solid ${BORDER}`,

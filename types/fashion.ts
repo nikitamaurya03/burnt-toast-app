@@ -115,4 +115,11 @@ export interface OutfitContext {
   anchor_sku?:   string;             // user already picked this product
   preferred_colors?: string[];
   season?:       string;
+  /** Force specific SKUs into specific roles (e.g. { bottom: "301044186" }).
+   *  Used for "change the top" — locks every slot except the one being replaced. */
+  lock_slots?:   Record<string, string>;
+  /** SKUs the user already rejected — never re-suggest these */
+  rejected_skus?: string[];
+  /** For multi: which slot to vary across the N outfits (e.g. "top" → 3 different tops) */
+  replace_slot?: string;
 }

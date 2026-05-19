@@ -226,20 +226,30 @@ function pickForSlot(
   anchor: EnrichedProduct | null,
   usedIds: Set<string>,
 ): EnrichedProduct | null {
+  // 0. LOCK: if this slot is forced to a specific SKU, return it directly
+  const lockedSku = ctx.lock_slots?.[slot.role];
+  if (lockedSku) {
+    const locked = CATALOGUE_BY_ID[lockedSku];
+    if (locked && slot.types.includes(locked.product_type)) return locked;
+  }
+
+  const rejectedSet = new Set(ctx.rejected_skus ?? []);
+
   // First pass: strict gender match (prefer products that match the target gender)
   const strict = CATALOGUE.filter(p => {
     if (!slot.types.includes(p.product_type)) return false;
     if (usedIds.has(p.id)) return false;
+    if (rejectedSet.has(p.id)) return false;
     if (OUTFIT_BLOCKLIST.test(p.name)) return false;
     if (ctx.gender && ctx.gender !== "unisex" && p.gender && p.gender !== "unisex" && p.gender !== ctx.gender) return false;
     return true;
   });
 
   // Fallback: relax gender constraint so under-stocked genders still return an outfit
-  // (gender mismatch still gets penalised by the score, just not hard-excluded)
   const relaxed = strict.length > 0 ? strict : CATALOGUE.filter(p => {
     if (!slot.types.includes(p.product_type)) return false;
     if (usedIds.has(p.id)) return false;
+    if (rejectedSet.has(p.id)) return false;
     if (OUTFIT_BLOCKLIST.test(p.name)) return false;
     return true;
   });
@@ -355,9 +365,16 @@ function budgetNote(total: number, budget?: number): string {
 
 /* ──────────────────────────────────────────────────────────────
    PUBLIC: build multiple varied outfits
+   If ctx.replace_slot is set, vary ONLY that slot across N outfits
+   (other slots stay locked). Otherwise vary by aesthetic vibe.
    ────────────────────────────────────────────────────────────── */
 export function buildMultipleOutfits(ctx: OutfitContext, count = 3): GeneratedOutfit[] {
-  // Diversify the vibe across the N outfits
+  // Mode A: vary a single slot (e.g. "show me 3 different tops")
+  if (ctx.replace_slot && ctx.lock_slots) {
+    return buildVariationsForSlot(ctx, ctx.replace_slot, count);
+  }
+
+  // Mode B: vary the vibe across N outfits (default)
   const baseVibe: Aesthetic =
     (ctx.vibe && (ctx.vibe as Aesthetic) in AESTHETIC_LABEL)
       ? (ctx.vibe as Aesthetic)
@@ -368,15 +385,63 @@ export function buildMultipleOutfits(ctx: OutfitContext, count = 3): GeneratedOu
   const candidateVibes: Aesthetic[] =
     (occProfile?.aesthetics.slice(0, count) as Aesthetic[] | undefined) ?? fallbackVibes.slice(0, count);
 
-  // Ensure unique
   const vibes = Array.from(new Set([baseVibe, ...candidateVibes])).slice(0, count);
-
   const results: GeneratedOutfit[] = [];
   for (const v of vibes) {
     const out = buildOutfit({ ...ctx, vibe: v });
     if (out) results.push(out);
   }
   return results;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Build N outfits that share locked slots but differ in ONE slot.
+   Used for "show me 3 different tops keeping everything else".
+   ────────────────────────────────────────────────────────────── */
+function buildVariationsForSlot(ctx: OutfitContext, replaceSlot: string, count: number): GeneratedOutfit[] {
+  // First, render the "base" outfit once so we know the template + vibe
+  const base = buildOutfit(ctx);
+  if (!base) return [];
+
+  const slotMeta = base.slots.find(s => s.role === replaceSlot);
+  if (!slotMeta) return [base]; // requested slot doesn't exist in this outfit — just return base
+
+  // Find top N alternative products for the replace slot (different from base.product, not rejected)
+  const rejected = new Set([slotMeta.product.id, ...(ctx.rejected_skus ?? [])]);
+  const sameType = CATALOGUE.filter(p =>
+    p.product_type === slotMeta.product.product_type &&
+    !rejected.has(p.id) &&
+    !OUTFIT_BLOCKLIST.test(p.name) &&
+    (!ctx.gender || ctx.gender === "unisex" || !p.gender || p.gender === "unisex" || p.gender === ctx.gender)
+  );
+
+  // Score each candidate (using a dummy "already picked" of the locked items)
+  const lockedProducts: EnrichedProduct[] = base.slots.filter(s => s.role !== replaceSlot).map(s => s.product);
+  const vibe: Aesthetic = (ctx.vibe && (ctx.vibe as Aesthetic) in AESTHETIC_LABEL)
+    ? (ctx.vibe as Aesthetic)
+    : pickAestheticFromOccasion(ctx.occasion);
+
+  const scored = sameType
+    .map(p => ({ p, score: scoreCandidate(p, ctx, vibe, lockedProducts, null) }))
+    .filter(x => x.score !== -Infinity)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, count);
+
+  // For each alternative, return a full outfit with that variant + everything else locked
+  const allLocked: Record<string, string> = {};
+  for (const s of base.slots) if (s.role !== replaceSlot) allLocked[s.role] = s.product.id;
+
+  const results: GeneratedOutfit[] = [];
+  for (const alt of scored) {
+    const variant = buildOutfit({
+      ...ctx,
+      lock_slots: { ...allLocked, [replaceSlot]: alt.p.id },
+      // unset replace_slot to avoid recursion
+      replace_slot: undefined,
+    });
+    if (variant) results.push(variant);
+  }
+  return results.length > 0 ? results : [base];
 }
 
 /* ──────────────────────────────────────────────────────────────
