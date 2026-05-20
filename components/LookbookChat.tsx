@@ -358,8 +358,7 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
     toggleItem(product);
   }
 
-  /* short, readable SKU tail for the polaroid footer */
-  const skuTail = (item.sku || "").slice(-6).toUpperCase();
+  /* primary color for the polaroid footer caption */
   const firstColor = item.colors?.[0];
 
   return (
@@ -453,27 +452,27 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
         {/* On-image color swatch removed for a cleaner editorial card */}
       </div>
 
-      {/* (#3) Polaroid footer strip — film-roll caption with color dot + SKU tail */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-        padding: "6px 10px",
-        background: "#FAFAF6",
-        borderTop: `1px solid ${BORDER}`,
-        fontFamily: "'JetBrains Mono','Courier New',monospace",
-        fontSize: 8, letterSpacing: 1.2, color: MUTED, fontWeight: 600,
-      }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          {firstColor && (
+      {/* (#3) Polaroid footer strip — film-roll caption with color dot + color name */}
+      {firstColor && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+          padding: "6px 10px",
+          background: "#FAFAF6",
+          borderTop: `1px solid ${BORDER}`,
+          fontFamily: "'JetBrains Mono','Courier New',monospace",
+          fontSize: 8, letterSpacing: 1.5, color: MUTED, fontWeight: 600,
+        }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{
               width: 7, height: 7, borderRadius: "50%",
               background: colorBg(firstColor),
               border: /^(white|cream)$/i.test(firstColor) ? "1px solid #d1d5db" : "1px solid rgba(0,0,0,0.1)",
             }} />
-          )}
-          <span>N° {skuTail || "—"}</span>
-        </span>
-        <span style={{ opacity: 0.6 }}>✦</span>
-      </div>
+            <span style={{ textTransform: "uppercase" }}>{firstColor}</span>
+          </span>
+          <span style={{ opacity: 0.6 }}>✦</span>
+        </div>
+      )}
 
       {/* Card body */}
       <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
@@ -670,8 +669,8 @@ function OutfitBlock({
     }
   }
 
-  /* (#2) Outfit watermark — couture lookbook page number */
-  const outfitNumber = String(lookNumber ?? 1).padStart(2, "0");
+  // lookNumber kept on the prop signature in case future UI wants to use it
+  void lookNumber;
 
   return (
     <div style={{
@@ -679,21 +678,7 @@ function OutfitBlock({
       border: `1px solid ${BORDER}`,
       borderRadius: 16, overflow: "hidden",
       boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 8px 24px rgba(0,0,0,0.04)",
-      position: "relative",
     }}>
-      {/* (#2) Faint serif "OUTFIT N°XX" watermark, top-right couture corner */}
-      <div style={{
-        position: "absolute", top: 14, right: 18,
-        fontFamily: FONT_DISPLAY,
-        fontSize: 26, fontStyle: "italic",
-        color: TEXT, opacity: 0.08,
-        letterSpacing: -0.5, lineHeight: 1,
-        pointerEvents: "none", userSelect: "none",
-        zIndex: 1,
-      }}>
-        Outfit N°{outfitNumber}
-      </div>
-
       {/* Label strip for multi-look */}
       {label && (
         <div style={{
