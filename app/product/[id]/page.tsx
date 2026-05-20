@@ -133,13 +133,13 @@ export default function ProductPage() {
           <div className="flex flex-col gap-4">
 
             {/* Main image with prev/next arrows */}
-            <div className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-gray-100 shadow-lg group">
+            <div className="relative aspect-[3/4] rounded-3xl overflow-hidden bg-[#f8f5f0] shadow-lg group">
               <Image
                 key={activeImg}
                 src={(product.images ?? [product.image])[activeImg] ?? product.image}
                 alt={`${product.name} — view ${activeImg + 1}`}
                 fill
-                className="object-cover object-top transition-opacity duration-300"
+                className="object-contain transition-opacity duration-300"
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 priority={activeImg === 0}
               />
@@ -190,7 +190,7 @@ export default function ProductPage() {
                     key={idx}
                     onClick={() => setActiveImg(idx)}
                     className={clsx(
-                      "relative flex-shrink-0 w-20 h-24 rounded-xl overflow-hidden border-2 transition-all duration-200",
+                      "relative flex-shrink-0 w-20 h-24 rounded-xl overflow-hidden border-2 transition-all duration-200 bg-[#f8f5f0]",
                       idx === activeImg
                         ? "border-gray-900 shadow-md"
                         : "border-gray-200 opacity-60 hover:opacity-100 hover:border-gray-400"
@@ -201,7 +201,7 @@ export default function ProductPage() {
                       src={img}
                       alt={`${product.name} thumbnail ${idx + 1}`}
                       fill
-                      className="object-cover object-top"
+                      className="object-contain"
                       sizes="80px"
                     />
                   </button>
@@ -382,12 +382,12 @@ export default function ProductPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {related.map((p) => (
                 <Link key={p.id} href={`/product/${p.id}`} className="group">
-                  <div className="rounded-2xl overflow-hidden bg-gray-100 aspect-[3/4] relative">
+                  <div className="rounded-2xl overflow-hidden bg-[#f8f5f0] aspect-[3/4] relative">
                     <Image
                       src={p.image}
                       alt={p.name}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="object-contain group-hover:scale-105 transition-transform duration-500"
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     />
                   </div>

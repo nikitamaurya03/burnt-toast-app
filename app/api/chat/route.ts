@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAnthropicClient, SYSTEM_PROMPT } from "@/utils/claudeClient";
+import { getAnthropicClient, hasAnthropicKey, SYSTEM_PROMPT } from "@/utils/claudeClient";
 import {
   buildOutfit,
   buildMultipleOutfits,
@@ -428,8 +428,8 @@ function resolveIntent(intent: ClaudeIntent, session?: SessionState) {
    POST /api/chat
    ──────────────────────────────────────────────────────────────── */
 export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("[/api/chat] ANTHROPIC_API_KEY missing");
+  if (!hasAnthropicKey()) {
+    console.error("[/api/chat] ANTHROPIC_API_KEY missing (env + .env.local both empty)");
     return NextResponse.json(fallback("no api key"), { status: 200 });
   }
 

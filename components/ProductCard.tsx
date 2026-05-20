@@ -38,7 +38,7 @@ export default function ProductCard({ product, compact = false }: Props) {
       {/* Image */}
       <div
         className={clsx(
-          "relative overflow-hidden bg-dark-50",
+          "relative overflow-hidden bg-[#f8f5f0]",
           compact ? "w-20 h-20 rounded-xl flex-shrink-0" : "aspect-[3/4] w-full"
         )}
       >
@@ -46,7 +46,10 @@ export default function ProductCard({ product, compact = false }: Props) {
           src={product.image}
           alt={product.name}
           fill
-          className="object-cover transition-transform duration-700 group-hover:scale-105"
+          className={clsx(
+            "transition-transform duration-700",
+            compact ? "object-cover" : "object-contain group-hover:scale-105"
+          )}
           sizes={compact ? "80px" : "(max-width: 768px) 100vw, 33vw"}
         />
 

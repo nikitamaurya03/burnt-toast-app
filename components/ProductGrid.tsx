@@ -75,7 +75,7 @@ function ChipRow<T extends string>({
 
 function SkeletonCard() {
   return (
-    <div className="bg-gray-100 rounded-2xl overflow-hidden border border-gray-200 animate-pulse">
+    <div className="bg-[#f8f5f0] rounded-2xl overflow-hidden border border-gray-200 animate-pulse">
       <div className="aspect-[3/4] bg-gray-200" />
       <div className="p-4 space-y-3">
         <div className="h-2.5 w-20 bg-gray-300 rounded" />

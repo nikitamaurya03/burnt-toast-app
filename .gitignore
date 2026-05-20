@@ -19,3 +19,6 @@ yarn-debug.log*
 # misc
 .DS_Store
 *.pem
+
+# Claude Code local settings (may contain machine-specific tool perms)
+.claude/settings.local.json

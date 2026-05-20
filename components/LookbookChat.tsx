@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, ShoppingBag, Check } from "lucide-react";
+import { Heart, ShoppingBag, Check, Plus, Menu, X, Sparkles, User } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { products as allProducts } from "@/data/products";
@@ -1385,13 +1385,77 @@ function deriveSessionUpdate(parsed: ParsedResponse, prev: SessionState): Sessio
   return next;
 }
 
+interface ChatHistoryEntry {
+  id: string;
+  title: string;
+  timestamp: number;
+  messages: ChatMessage[];
+  session: SessionState;
+}
+
+function relativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
 export default function LookbookChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput]       = useState("");
   const [loading, setLoading]   = useState(false);
   const [session, setSession]   = useState<SessionState>(EMPTY_SESSION);
+  const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { totalItems: cartCount } = useCart();
+  const { totalItems: wishCount } = useWishlist();
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
+
+  /* Persist chat history to localStorage */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("toastie_chat_history");
+      if (raw) setChatHistory(JSON.parse(raw));
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("toastie_chat_history", JSON.stringify(chatHistory)); } catch {}
+  }, [chatHistory]);
+
+  /* Save the current chat into history when a meaningful exchange exists */
+  useEffect(() => {
+    if (messages.length < 2) return;
+    const firstUser = messages.find(m => m.role === "user");
+    if (!firstUser) return;
+    const title = firstUser.content.slice(0, 48);
+    const id = activeChatId ?? `${Date.now()}`;
+    setActiveChatId(id);
+    setChatHistory(prev => {
+      const without = prev.filter(c => c.id !== id);
+      return [{ id, title, timestamp: Date.now(), messages, session }, ...without].slice(0, 20);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
+  function newChat() {
+    setMessages([]);
+    setSession(EMPTY_SESSION);
+    setActiveChatId(null);
+    setSidebarOpen(false);
+  }
+  function loadChat(entry: ChatHistoryEntry) {
+    setMessages(entry.messages);
+    setSession(entry.session);
+    setActiveChatId(entry.id);
+    setSidebarOpen(false);
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1465,246 +1529,355 @@ export default function LookbookChat() {
   return (
     <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", fontFamily: FONT_BODY }}>
 
-      {/* ── HEADER — editorial top bar with brand mark + live + menu ── */}
-      <div style={{
+      {/* ═══ HEADER ═══════════════════════════════════════════════ */}
+      <header style={{
         background: BG, borderBottom: `1px solid ${BORDER}`,
-        padding: "14px 24px", display: "flex", alignItems: "center",
-        justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10,
+        padding: "12px 20px", display: "flex", alignItems: "center",
+        justifyContent: "space-between", position: "sticky", top: 0, zIndex: 30,
       }}>
-        <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flex: 1 }}>
-          <Image
-            src="https://burnt-toast.com/cdn/shop/files/Logo-8_1.png"
-            alt="Burnt Toast"
-            width={110}
-            height={36}
-            style={{ width: "auto", height: 36, objectFit: "contain" }}
-            priority
-            unoptimized
-          />
-        </Link>
+        {/* Left — logo + sidebar toggle on mobile */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            aria-label="Toggle sidebar"
+            className="lg:hidden"
+            style={{
+              background: "transparent", border: "none", padding: 6,
+              cursor: "pointer", color: TEXT, display: "flex",
+            }}
+          >
+            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+            <Image
+              src="https://burnt-toast.com/cdn/shop/files/Logo-8_1.png"
+              alt="Burnt Toast"
+              width={110}
+              height={36}
+              style={{ width: "auto", height: 32, objectFit: "contain" }}
+              priority
+              unoptimized
+            />
+          </Link>
+        </div>
 
+        {/* Center — Ask Toastie title */}
         <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ color: TEXT, fontWeight: 600, fontSize: 17, fontFamily: FONT_DISPLAY, lineHeight: 1.1 }}>Ask Toastie</div>
-          <div style={{ color: MUTED, fontSize: 9, letterSpacing: 3, fontFamily: FONT_MONO, marginTop: 2 }}>
+          <div style={{ color: TEXT, fontWeight: 600, fontSize: 18, fontFamily: FONT_DISPLAY, lineHeight: 1.1 }}>
+            Ask Toastie
+          </div>
+          <div style={{ color: MUTED, fontSize: 9, letterSpacing: 3, fontFamily: FONT_MONO, marginTop: 2, fontWeight: 500 }}>
             YOUR PERSONAL AI STYLIST
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        {/* Right — LIVE + nav + avatar */}
+        <div style={{ display: "flex", gap: 14, alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }} className="hidden sm:flex">
             <div style={{ width: 8, height: 8, background: SAGE_DEEP, borderRadius: "50%" }} />
-            <span style={{ fontSize: 11, color: SAGE_DEEP, fontFamily: FONT_MONO, letterSpacing: 1, fontWeight: 500 }}>LIVE</span>
+            <span style={{ fontSize: 10, color: SAGE_DEEP, fontFamily: FONT_MONO, letterSpacing: 1.5, fontWeight: 600 }}>LIVE</span>
           </div>
-          {messages.length > 0 && (
-            <button
-              onClick={() => { setMessages([]); setSession(EMPTY_SESSION); }}
-              title="Start a new chat"
-              style={{
-                background: "transparent", border: `1px solid ${BORDER}`,
-                borderRadius: 999, padding: "5px 14px",
-                fontSize: 10, fontWeight: 500, color: MUTED,
-                fontFamily: FONT_MONO, letterSpacing: 1.5,
-                cursor: "pointer", transition: "all 0.15s",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = TEXT; e.currentTarget.style.color = TEXT; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = MUTED; }}
-            >
-              NEW CHAT
-            </button>
-          )}
+
+          <nav style={{ display: "flex", alignItems: "center", gap: 18 }} className="hidden md:flex">
+            <Link href="/" style={{
+              fontFamily: FONT_MONO, fontSize: 10, letterSpacing: 2, color: TEXT,
+              textDecoration: "none", fontWeight: 500,
+            }}>SHOP</Link>
+            <Link href="/wishlist" style={{ position: "relative", display: "flex", alignItems: "center" }} aria-label="Wishlist">
+              <Heart size={17} stroke={TEXT} fill={wishCount > 0 ? "#DC2626" : "none"} />
+              {wishCount > 0 && (
+                <span style={{
+                  position: "absolute", top: -5, right: -7,
+                  background: TEXT, color: BG,
+                  fontFamily: FONT_MONO, fontSize: 8, fontWeight: 700,
+                  borderRadius: "50%", width: 14, height: 14,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>{wishCount > 9 ? "9+" : wishCount}</span>
+              )}
+            </Link>
+            <Link href="/cart" style={{ position: "relative", display: "flex", alignItems: "center" }} aria-label="Cart">
+              <ShoppingBag size={17} stroke={TEXT} />
+              {cartCount > 0 && (
+                <span style={{
+                  position: "absolute", top: -5, right: -7,
+                  background: TEXT, color: BG,
+                  fontFamily: FONT_MONO, fontSize: 8, fontWeight: 700,
+                  borderRadius: "50%", width: 14, height: 14,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>{cartCount > 9 ? "9+" : cartCount}</span>
+              )}
+            </Link>
+          </nav>
+
+          {/* Profile avatar */}
+          <div style={{
+            width: 32, height: 32, borderRadius: "50%",
+            background: CARD, border: `1px solid ${BORDER}`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+          }}>
+            <User size={15} stroke={TEXT} />
+          </div>
         </div>
-      </div>
+      </header>
+
+      {/* ═══ BODY — sidebar + chat panel ══════════════════════════ */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
+
+        {/* ─── SIDEBAR ───────────────────────────────────────────── */}
+        <aside
+          style={{
+            width: 280, minWidth: 280, maxWidth: 280,
+            background: BG, borderRight: `1px solid ${BORDER}`,
+            display: "flex", flexDirection: "column",
+            padding: "20px 16px", gap: 16,
+            position: sidebarOpen ? "fixed" : "relative",
+            top: sidebarOpen ? 0 : "auto", left: 0, bottom: 0,
+            zIndex: 25, height: sidebarOpen ? "100vh" : "auto",
+            transform: sidebarOpen ? "translateX(0)" : undefined,
+            transition: "transform 0.3s",
+          }}
+          className={sidebarOpen ? "" : "hidden lg:flex"}
+        >
+          {/* + New chat */}
+          <button
+            onClick={newChat}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              background: "transparent", border: `1px solid ${TEXT}`,
+              borderRadius: 999, padding: "10px 16px",
+              fontFamily: FONT_MONO, fontSize: 10, fontWeight: 600,
+              letterSpacing: 2, color: TEXT, cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = SAGE; e.currentTarget.style.borderColor = SAGE_DEEP; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = TEXT; }}
+          >
+            <Plus size={13} /> NEW CHAT
+          </button>
+
+          {/* RECENT */}
+          <div style={{
+            color: MUTED, fontSize: 9, letterSpacing: 3, fontFamily: FONT_MONO,
+            fontWeight: 600, display: "flex", alignItems: "center", gap: 6,
+            paddingLeft: 4,
+          }}>
+            <span>RECENT</span>
+            <span style={{ flex: 1, height: 1, background: BORDER }} />
+          </div>
+
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+            {chatHistory.length === 0 ? (
+              <div style={{
+                color: MUTED, fontSize: 12, fontStyle: "italic",
+                fontFamily: FONT_DISPLAY, padding: "20px 6px", textAlign: "center",
+              }}>
+                Your chats will appear here ✦
+              </div>
+            ) : (
+              chatHistory.map(entry => (
+                <button
+                  key={entry.id}
+                  onClick={() => loadChat(entry)}
+                  style={{
+                    background: activeChatId === entry.id ? CARD : "transparent",
+                    border: "none", textAlign: "left", cursor: "pointer",
+                    padding: "10px 12px", borderRadius: 8,
+                    borderLeft: activeChatId === entry.id ? `2px solid ${SAGE_DEEP}` : "2px solid transparent",
+                    display: "flex", flexDirection: "column", gap: 3,
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={e => { if (activeChatId !== entry.id) e.currentTarget.style.background = CARD; }}
+                  onMouseLeave={e => { if (activeChatId !== entry.id) e.currentTarget.style.background = "transparent"; }}
+                >
+                  <div style={{
+                    fontFamily: FONT_DISPLAY, fontSize: 14,
+                    fontStyle: "italic", color: TEXT, lineHeight: 1.3,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {entry.title}
+                  </div>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 9, color: MUTED, letterSpacing: 0.5 }}>
+                    {relativeTime(entry.timestamp)}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* Sidebar footer */}
+          <div style={{
+            paddingTop: 14, borderTop: `1px solid ${BORDER}`,
+            display: "flex", alignItems: "center", gap: 6,
+            color: MUTED, fontFamily: FONT_MONO, fontSize: 9,
+            letterSpacing: 2.5, fontWeight: 500,
+          }}>
+            <span style={{ color: TEXT, fontSize: 11 }}>✦</span>
+            STYLED AROUND YOU.
+          </div>
+        </aside>
+
+        {/* Sidebar backdrop on mobile */}
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)",
+              zIndex: 24,
+            }}
+            className="lg:hidden"
+          />
+        )}
+
+        {/* ─── CHAT PANEL ────────────────────────────────────────── */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
       {/* ── BODY ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
 
-        {/* ── WELCOME — editorial fashion magazine hero ─────────────── */}
+        {/* ═══ WELCOME — editorial inviting hero ═══════════════════ */}
         {messages.length === 0 && !loading && (
-          <div className="animate-fade-in" style={{ maxWidth: 1100, margin: "20px auto 0", width: "100%", padding: "8px 4px" }}>
+          <div className="animate-fade-in" style={{
+            maxWidth: 900, margin: "auto", width: "100%",
+            padding: "32px 12px", display: "flex", flexDirection: "column",
+            alignItems: "center", gap: 32,
+          }}>
 
-            {/* Hero — desktop: 2-col split | mobile: stacked */}
+            {/* Sparkle preamble */}
             <div style={{
-              display: "grid",
-              gridTemplateColumns: "1fr",
-              gap: 32, alignItems: "center",
-            }} className="md:grid-cols-2">
-
-              {/* LEFT — hero title + intro */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "8px 12px" }}>
-                <div style={{ color: MUTED, fontSize: 10, letterSpacing: 4, fontFamily: FONT_MONO, fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
-                  YOUR AI STYLIST
-                  <span style={{ color: TEXT, fontSize: 11 }}>✦</span>
-                </div>
-
-                <h1 style={{
-                  fontFamily: FONT_DISPLAY, color: TEXT,
-                  fontSize: "clamp(48px, 7vw, 84px)",
-                  lineHeight: 0.96, letterSpacing: -1,
-                  fontWeight: 400, margin: 0,
-                }}>
-                  Style<br />
-                  that feels<br />
-                  <em style={{ fontStyle: "italic" }}>like you.</em>
-                </h1>
-
-                {/* Hand-drawn underline */}
-                <svg width="180" height="14" viewBox="0 0 180 14" style={{ marginTop: -8 }}>
-                  <path d="M2 8 Q40 2, 90 6 T178 5" stroke={TEXT} strokeWidth="2" fill="none" strokeLinecap="round" />
-                  <path d="M5 11 Q60 7, 120 9" stroke={TEXT} strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.6" />
-                </svg>
-
-                <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.7, maxWidth: 420, fontFamily: FONT_BODY }}>
-                  Tell Toastie your vibe, occasion, or budget — get a full shoppable look in seconds.
-                </p>
-
-                <div style={{ fontFamily: FONT_BRAND, color: TEXT, fontSize: 22, transform: "rotate(-1deg)", display: "flex", alignItems: "center", gap: 10 }}>
-                  Styled around you. Always.
-                  <span style={{ fontSize: 16, color: MUTED }}>♡</span>
-                </div>
-              </div>
-
-              {/* RIGHT — polaroid collage + tag note */}
-              <div style={{ position: "relative", minHeight: 420, padding: "20px 8px" }}>
-
-                {/* Main polaroid (model image) */}
-                <div className="polaroid" style={{
-                  position: "absolute",
-                  width: "62%", aspectRatio: "3/4",
-                  left: "10%", top: "8%",
-                  transform: "rotate(-3deg)",
-                  zIndex: 2,
-                }}>
-                  <div style={{
-                    width: "100%", height: "100%",
-                    background: "linear-gradient(135deg, #C0B5A3 0%, #968878 100%)",
-                    backgroundImage: "url('https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=800&q=80')",
-                    backgroundSize: "cover", backgroundPosition: "center",
-                    position: "relative",
-                  }}>
-                    {/* Caption strip */}
-                    <div style={{
-                      position: "absolute", bottom: 0, left: 0, right: 0,
-                      padding: "10px 12px",
-                      background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)",
-                      color: "#fff", fontFamily: FONT_MONO, fontSize: 10,
-                      letterSpacing: 2,
-                    }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, letterSpacing: 2 }}>DOWNTOWN</div>
-                      <div style={{ fontSize: 8, opacity: 0.85, marginTop: 2 }}>MINIMAL · COOL · ELEVATED</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Small accent polaroid (bag) — bottom left */}
-                <div className="polaroid" style={{
-                  position: "absolute",
-                  width: "26%", aspectRatio: "3/4",
-                  left: "-2%", bottom: "8%",
-                  transform: "rotate(-8deg)",
-                  zIndex: 1,
-                }}>
-                  <div style={{
-                    width: "100%", height: "100%",
-                    backgroundImage: "url('https://images.unsplash.com/photo-1591561954557-26941169b49e?w=400&q=80')",
-                    backgroundSize: "cover", backgroundPosition: "center",
-                  }} />
-                </div>
-
-                {/* Tag list polaroid — top right */}
-                <div className="polaroid" style={{
-                  position: "absolute",
-                  width: "32%", padding: "16px 14px 18px",
-                  right: "-4%", top: "12%",
-                  transform: "rotate(4deg)",
-                  zIndex: 3,
-                  background: "#FFFEF5",
-                }}>
-                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: TEXT, lineHeight: 2.1 }}>
-                    minimal<br />
-                    downtown<br />
-                    clean girl<br />
-                    soft grunge<br />
-                    elevated basics
-                  </div>
-                </div>
-
-                {/* Small accent polaroid (shoes) — bottom right */}
-                <div className="polaroid" style={{
-                  position: "absolute",
-                  width: "30%", aspectRatio: "1/1",
-                  right: "2%", bottom: "0%",
-                  transform: "rotate(6deg)",
-                  zIndex: 2,
-                }}>
-                  <div style={{
-                    width: "100%", height: "100%",
-                    backgroundImage: "url('https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80')",
-                    backgroundSize: "cover", backgroundPosition: "center",
-                  }} />
-                </div>
-
-                {/* "BT APPROVED" sage stamp */}
-                <div style={{
-                  position: "absolute", right: "30%", bottom: "-2%",
-                  width: 78, height: 78, borderRadius: "50%",
-                  background: SAGE,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transform: "rotate(-10deg)", zIndex: 4,
-                  boxShadow: "0 4px 14px rgba(116, 139, 106, 0.25)",
-                }}>
-                  <div style={{ textAlign: "center", color: TEXT }}>
-                    <div style={{ fontFamily: FONT_BRAND, fontSize: 22, lineHeight: 0.9 }}>BT</div>
-                    <div style={{ fontFamily: FONT_MONO, fontSize: 7, letterSpacing: 1, marginTop: 1, fontWeight: 500 }}>APPROVED</div>
-                  </div>
-                </div>
-
-                {/* Sparkle accent */}
-                <span style={{ position: "absolute", left: "8%", top: "0%", fontSize: 18, color: TEXT, zIndex: 5 }}>✦</span>
-                <span style={{ position: "absolute", right: "0%", top: "0%", fontSize: 14, color: TEXT, zIndex: 5 }}>✦</span>
-              </div>
+              color: MUTED, fontSize: 10, letterSpacing: 4,
+              fontFamily: FONT_MONO, fontWeight: 600,
+              display: "flex", alignItems: "center", gap: 10,
+            }}>
+              <span style={{ color: TEXT }}>✦</span>
+              YOUR PERSONAL AI STYLIST
+              <span style={{ color: TEXT }}>✦</span>
             </div>
 
-            {/* Try-prompt suggestions */}
+            {/* Greeting */}
+            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 14 }}>
+              <h1 style={{
+                fontFamily: FONT_DISPLAY, color: TEXT,
+                fontSize: "clamp(40px, 6vw, 68px)",
+                lineHeight: 1.0, letterSpacing: -0.5, fontWeight: 400, margin: 0,
+              }}>
+                What&apos;s the <em style={{ fontStyle: "italic" }}>vibe</em> today?
+              </h1>
+
+              {/* Hand-drawn underline */}
+              <svg width="220" height="14" viewBox="0 0 220 14" style={{ alignSelf: "center", marginTop: -4 }}>
+                <path d="M2 8 Q50 2, 110 6 T218 5" stroke={TEXT} strokeWidth="2" fill="none" strokeLinecap="round" />
+                <path d="M8 11 Q80 7, 150 9" stroke={TEXT} strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.5" />
+              </svg>
+
+              <p style={{
+                color: MUTED, fontSize: 15, lineHeight: 1.7,
+                maxWidth: 480, fontFamily: FONT_BODY, margin: "8px auto 0",
+              }}>
+                Tell Toastie your occasion, mood, or budget — get a full shoppable look in seconds.
+              </p>
+            </div>
+
+            {/* 2x2 polaroid suggestion grid */}
             <div style={{
-              display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 10,
-              padding: "32px 12px 8px", marginTop: 20,
-              borderTop: `1px solid ${BORDER}`,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 22, maxWidth: 680, width: "100%",
+              marginTop: 12,
             }}>
-              <span style={{ color: MUTED, fontSize: 10, fontFamily: FONT_MONO, letterSpacing: 2, marginRight: 4 }}>TRY:</span>
               {[
-                "airport look under ₹4000",
-                "date night soft glam",
-                "what's trending this week?",
-                "college fest look",
-              ].map((prompt, i) => (
+                { emoji: "🎓", title: "College fest look",   sub: "MAIN STAGE READY",     tilt: -2.5, prompt: "college fest look — bold and statement-making" },
+                { emoji: "💼", title: "Office to drinks",    sub: "DAY → NIGHT",          tilt: 2,    prompt: "office to drinks outfit — smart but fun" },
+                { emoji: "💕", title: "First date energy",   sub: "QUIETLY ELEVATED",     tilt: -1.5, prompt: "first date outfit — feminine and confident" },
+                { emoji: "✈️", title: "Travel-day comfort", sub: "AIRPORT CHIC",         tilt: 2.5,  prompt: "travel day comfort outfit under ₹4000" },
+              ].map((card, i) => (
                 <button
                   key={i}
-                  onClick={() => send(prompt)}
+                  onClick={() => send(card.prompt)}
                   style={{
-                    background: "transparent",
+                    background: "#FFFEF5",
                     border: `1px solid ${BORDER}`,
-                    borderRadius: 999,
-                    padding: "8px 16px",
-                    color: TEXT, fontSize: 12,
-                    fontFamily: FONT_BODY,
+                    padding: "16px 16px 18px",
+                    borderRadius: 4,
                     cursor: "pointer",
-                    transition: "all 0.2s",
+                    textAlign: "left",
+                    display: "flex", flexDirection: "column", gap: 14,
+                    transform: `rotate(${card.tilt}deg)`,
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+                    transition: "transform 0.25s, box-shadow 0.25s",
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = TEXT; e.currentTarget.style.color = BG; e.currentTarget.style.borderColor = TEXT; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = TEXT; e.currentTarget.style.borderColor = BORDER; }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = `rotate(0deg) translateY(-4px)`;
+                    e.currentTarget.style.boxShadow = "0 12px 28px rgba(0,0,0,0.12)";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = `rotate(${card.tilt}deg)`;
+                    e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,0.06)";
+                  }}
                 >
-                  &ldquo;{prompt}&rdquo;
+                  {/* Image block */}
+                  <div style={{
+                    aspectRatio: "1/1", background: CARD,
+                    border: `1px solid ${BORDER}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 64, position: "relative", overflow: "hidden",
+                  }}>
+                    <span>{card.emoji}</span>
+                    {/* mini sage corner stamp */}
+                    {i === 0 && (
+                      <div style={{
+                        position: "absolute", top: 8, right: 8,
+                        width: 38, height: 38, borderRadius: "50%",
+                        background: SAGE,
+                        display: "flex", flexDirection: "column",
+                        alignItems: "center", justifyContent: "center",
+                        transform: "rotate(-12deg)",
+                        boxShadow: "0 2px 6px rgba(116,139,106,0.3)",
+                      }}>
+                        <div style={{ fontFamily: FONT_BRAND, fontSize: 12, color: TEXT, lineHeight: 0.9 }}>BT</div>
+                        <div style={{ fontFamily: FONT_MONO, fontSize: 5, color: TEXT, letterSpacing: 0.8, fontWeight: 500 }}>APPROVED</div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Caption */}
+                  <div>
+                    <div style={{
+                      fontFamily: FONT_DISPLAY, fontSize: 19,
+                      color: TEXT, lineHeight: 1.1, marginBottom: 4,
+                      fontStyle: "italic",
+                    }}>
+                      {card.title}
+                    </div>
+                    <div style={{
+                      fontFamily: FONT_MONO, fontSize: 9,
+                      color: MUTED, letterSpacing: 2, fontWeight: 500,
+                    }}>
+                      {card.sub}
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
 
+            {/* Brand hand-written tag line */}
+            <div style={{
+              fontFamily: FONT_BRAND, color: TEXT, fontSize: 22,
+              transform: "rotate(-1deg)", display: "flex",
+              alignItems: "center", gap: 10, marginTop: 8,
+            }}>
+              Styled around you. Always.
+              <span style={{ fontSize: 16, color: MUTED }}>♡</span>
+            </div>
+
             {/* Footer caption */}
             <div style={{
-              textAlign: "center", marginTop: 28,
-              color: MUTED, fontSize: 10, letterSpacing: 4,
-              fontFamily: FONT_MONO, fontWeight: 500,
+              textAlign: "center",
+              color: MUTED, fontSize: 9, letterSpacing: 4,
+              fontFamily: FONT_MONO, fontWeight: 600,
+              borderTop: `1px solid ${BORDER}`, paddingTop: 20, marginTop: 8,
+              width: "100%", maxWidth: 500,
             }}>
-              POWERED BY STYLE. PERSONALIZED BY AI. <span style={{ color: TEXT, fontSize: 12, marginLeft: 4 }}>✦</span>
+              POWERED BY STYLE · PERSONALIZED BY AI <span style={{ color: TEXT, fontSize: 11, marginLeft: 4 }}>✦</span>
             </div>
           </div>
         )}
@@ -1804,77 +1977,117 @@ export default function LookbookChat() {
         <div ref={bottomRef} />
       </div>
 
-      {/* ── INPUT BAR — pill style with T avatar + arrow ──────────── */}
+      {/* ═══ INPUT BAR ════════════════════════════════════════════ */}
       <div style={{
         padding: "16px 20px 20px", background: BG,
         borderTop: `1px solid ${BORDER}`,
       }}>
-        <div style={{
-          maxWidth: 900, margin: "0 auto",
-          display: "flex", alignItems: "center", gap: 12,
-          background: CARD, border: `1px solid ${BORDER}`,
-          borderRadius: 999, padding: "10px 10px 10px 14px",
-          transition: "border-color 0.2s, box-shadow 0.2s",
-        }}>
-          {/* T avatar */}
+        <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10 }}>
+
+          {/* Pill input */}
           <div style={{
-            width: 38, height: 38, minWidth: 38, background: BG,
-            border: `1px solid ${BORDER}`,
-            borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-            fontFamily: FONT_BRAND, fontSize: 20, color: TEXT,
-            position: "relative",
+            display: "flex", alignItems: "center", gap: 12,
+            background: CARD, border: `1px solid ${BORDER}`,
+            borderRadius: 999, padding: "10px 10px 10px 14px",
+            transition: "border-color 0.2s, box-shadow 0.2s",
           }}>
-            T
-            {/* sage live dot */}
+            {/* T avatar */}
             <div style={{
-              position: "absolute", bottom: 1, right: 1,
-              width: 9, height: 9, background: SAGE_DEEP,
-              borderRadius: "50%", border: `2px solid ${CARD}`,
-            }} />
+              width: 38, height: 38, minWidth: 38, background: BG,
+              border: `1px solid ${BORDER}`,
+              borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: FONT_BRAND, fontSize: 20, color: TEXT,
+              position: "relative",
+            }}>
+              T
+              <div style={{
+                position: "absolute", bottom: 1, right: 1,
+                width: 9, height: 9, background: SAGE_DEEP,
+                borderRadius: "50%", border: `2px solid ${CARD}`,
+              }} />
+            </div>
+
+            {/* Brand mini-label */}
+            <div style={{ display: "flex", flexDirection: "column", marginRight: 4, minWidth: 0 }} className="hidden md:flex">
+              <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: TEXT, letterSpacing: 2, fontWeight: 600 }}>TOASTIE</span>
+              <span style={{ fontFamily: FONT_MONO, fontSize: 8, color: SAGE_DEEP, letterSpacing: 1.5, marginTop: 1, display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: SAGE_DEEP, display: "inline-block" }} />
+                LIVE STYLIST AI
+              </span>
+            </div>
+
+            {/* Input */}
+            <input
+              ref={inputRef as unknown as React.RefObject<HTMLInputElement>}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              placeholder="Ask Toastie anything..."
+              style={{
+                flex: 1, background: "transparent", border: "none",
+                padding: "8px 6px", color: TEXT,
+                fontSize: 14, fontFamily: FONT_BODY,
+                outline: "none",
+              }}
+            />
+
+            {/* Submit — black circle with up arrow */}
+            <button
+              onClick={() => send()}
+              disabled={loading || !input.trim()}
+              aria-label="Send"
+              style={{
+                background: (!input.trim() || loading) ? CARD : TEXT,
+                color: (!input.trim() || loading) ? MUTED : BG,
+                border: (!input.trim() || loading) ? `1px solid ${BORDER}` : "none",
+                borderRadius: "50%",
+                width: 40, height: 40, minWidth: 40,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 16, fontWeight: 700,
+                cursor: (!input.trim() || loading) ? "not-allowed" : "pointer",
+                transition: "all 0.2s",
+              }}
+            >
+              {loading ? "…" : "↑"}
+            </button>
           </div>
 
-          {/* Brand mini-label */}
-          <div style={{ display: "flex", flexDirection: "column", marginRight: 4, minWidth: 0 }} className="hidden md:flex">
-            <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: TEXT, letterSpacing: 2, fontWeight: 500 }}>TOASTIE</span>
-            <span style={{ fontFamily: FONT_MONO, fontSize: 8, color: MUTED, letterSpacing: 1.5, marginTop: 1 }}>LIVE STYLIST AI</span>
-          </div>
-
-          {/* Input */}
-          <input
-            ref={inputRef as unknown as React.RefObject<HTMLInputElement>}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder="Ask Toastie anything..."
-            style={{
-              flex: 1, background: "transparent", border: "none",
-              padding: "8px 6px", color: TEXT,
-              fontSize: 14, fontFamily: FONT_BODY,
-              outline: "none",
-            }}
-          />
-
-          {/* Submit — black circle with up arrow */}
-          <button
-            onClick={() => send()}
-            disabled={loading || !input.trim()}
-            aria-label="Send"
-            style={{
-              background: (!input.trim() || loading) ? CARD : TEXT,
-              color: (!input.trim() || loading) ? MUTED : BG,
-              border: (!input.trim() || loading) ? `1px solid ${BORDER}` : "none",
-              borderRadius: "50%",
-              width: 40, height: 40, minWidth: 40,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 16, fontWeight: 700,
-              cursor: (!input.trim() || loading) ? "not-allowed" : "pointer",
-              transition: "all 0.2s",
-            }}
-          >
-            {loading ? "…" : "↑"}
-          </button>
+          {/* Suggestion chips below input (only when no messages yet) */}
+          {messages.length === 0 && (
+            <div style={{
+              display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8,
+              padding: "2px 8px",
+            }}>
+              {[
+                "airport look under ₹4000",
+                "date night soft glam",
+                "what's trending this week?",
+              ].map((prompt, i) => (
+                <button
+                  key={i}
+                  onClick={() => send(prompt)}
+                  style={{
+                    background: "transparent",
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: 999,
+                    padding: "6px 14px",
+                    color: MUTED, fontSize: 11,
+                    fontFamily: FONT_BODY, fontStyle: "italic",
+                    cursor: "pointer", transition: "all 0.2s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = TEXT; e.currentTarget.style.color = TEXT; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = MUTED; }}
+                >
+                  &ldquo;{prompt}&rdquo;
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+        </div>{/* /chat panel */}
+      </div>{/* /body sidebar+main */}
     </div>
   );
 }
