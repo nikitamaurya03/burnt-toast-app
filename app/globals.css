@@ -1,12 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Caveat+Brush&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ──────────────────────────────────────────────────────────────
+   Burnt Toast — Editorial Cream Theme
+   Inspired by: warm cream paper + black ink + sage approved stamp
+   ────────────────────────────────────────────────────────────── */
 :root {
-  --font-inter: 'Inter', sans-serif;
-  --font-playfair: 'Playfair Display', Georgia, serif;
+  /* Typography */
+  --font-display:  'DM Serif Display', Georgia, serif;       /* hero italic */
+  --font-brand:    'Caveat Brush', 'Marker Felt', cursive;   /* logo/Toastie */
+  --font-mono:     'JetBrains Mono', 'Courier New', monospace; /* tags, labels */
+  --font-body:     'Inter', system-ui, sans-serif;           /* paragraphs */
+
+  /* Color palette — cream + ink + sage accent */
+  --cream:          #F0EBE0;   /* main background */
+  --cream-soft:     #F5F1E8;   /* card background */
+  --cream-deep:     #E8E1D2;   /* hover/divider */
+  --ink:            #1A1A1A;   /* primary text */
+  --ink-soft:       #3A3A3A;   /* secondary text */
+  --ash:            #8A8782;   /* muted/captions */
+  --line:           #D8D2C4;   /* borders */
+  --sage:           #A4B596;   /* accent (LIVE / APPROVED) */
+  --sage-deep:      #748B6A;   /* hover accent */
+  --burnt:          #B8492C;   /* sale / hot */
+  --paper:          #FFFFFF;
 }
 
 * {
@@ -19,44 +39,45 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
-  background-color: #ffffff;
-  color: #111111;
-  font-family: var(--font-inter);
+  background-color: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.5;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #d4d4d4;
-  border-radius: 999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #c4953a;
-}
+/* Editorial-grade font utilities (used inline in components) */
+.font-display { font-family: var(--font-display); font-weight: 400; }
+.font-brand   { font-family: var(--font-brand);   font-weight: 400; }
+.font-mono    { font-family: var(--font-mono);    font-weight: 400; }
 
-/* Hide scrollbar utility */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+/* Custom scrollbar — barely there */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--cream-deep); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ash); }
 
-/* Selection */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
 ::selection {
-  background: rgba(0, 0, 0, 0.12);
-  color: #111111;
+  background: var(--sage);
+  color: var(--ink);
 }
+
+/* Tailwind override hint — use these classes in components */
+.bt-cream-bg     { background-color: var(--cream); }
+.bt-cream-soft   { background-color: var(--cream-soft); }
+.bt-ink          { color: var(--ink); }
+.bt-ash          { color: var(--ash); }
+.bt-sage         { color: var(--sage-deep); }
+.bt-sage-bg      { background-color: var(--sage); }
+.bt-line         { border-color: var(--line); }
 
 /* ── Chatbot dot-pulse animations ───────────────────────────────── */
 @keyframes btpulse {
@@ -68,9 +89,9 @@ body {
   40%           { transform: scale(1);   opacity: 1;   }
 }
 
-/* ── Modal slide-up animation (mobile bottom-sheet feel) ──────── */
+/* ── Slide-up / fade-in ──────────────────────────────────────────── */
 @keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
+  from { transform: translateY(20px); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
 @keyframes fadeIn {
@@ -78,30 +99,28 @@ body {
   to   { opacity: 1; transform: scale(1); }
 }
 
-.animate-slide-up {
-  animation: slideUp 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+.animate-slide-up { animation: slideUp 0.45s cubic-bezier(0.32, 0.72, 0, 1); }
+.animate-fade-in  { animation: fadeIn 0.6s ease-out; }
+
+/* ── Editorial polaroid card — used in hero collage ───────────── */
+.polaroid {
+  background: var(--paper);
+  padding: 8px 8px 14px;
+  box-shadow:
+    0 1px 3px rgba(26, 26, 26, 0.08),
+    0 8px 24px rgba(26, 26, 26, 0.10);
+  border-radius: 2px;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+.polaroid:hover {
+  box-shadow:
+    0 2px 6px rgba(26, 26, 26, 0.12),
+    0 16px 40px rgba(26, 26, 26, 0.15);
 }
 
-@media (min-width: 640px) {
-  .animate-slide-up {
-    animation: fadeIn 0.22s ease-out;
-  }
-}
+/* ── Safe area padding ───────────────────────────────────────── */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
-/* ── Safe area padding for iPhone notch / home bar ──────────── */
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-/* ── Touch targets — minimum 44px on mobile ──────────────────── */
 @media (max-width: 640px) {
-  button {
-    min-height: 36px;
-  }
-}
-
-/* ── Prevent text size adjustment on mobile rotation ─────────── */
-html {
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
+  button { min-height: 36px; }
 }

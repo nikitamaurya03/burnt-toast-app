@@ -10,13 +10,21 @@ import { products as allProducts } from "@/data/products";
 import { catalogueProducts } from "@/data/catalogue";
 import { Product } from "@/types";
 
-/* ── Palette ─────────────────────────────────────────────────────── */
-const BG     = "#FFFFFF";
-const CARD   = "#F7F7F7";
-const BORDER = "#E8E8E8";
-const TEXT   = "#111111";
-const MUTED  = "#888888";
-const ACCENT = "#111111";
+/* ── Palette — editorial cream theme ─────────────────────────── */
+const BG     = "#F0EBE0";   // cream paper background
+const CARD   = "#F5F1E8";   // soft cream card
+const BORDER = "#D8D2C4";   // warm beige line
+const TEXT   = "#1A1A1A";   // ink
+const MUTED  = "#8A8782";   // warm ash
+const ACCENT = "#1A1A1A";   // ink (for primary CTAs)
+const SAGE   = "#A4B596";   // sage accent (LIVE, APPROVED)
+const SAGE_DEEP = "#748B6A";
+
+/* ── Editorial font stack — matches globals.css tokens ─────── */
+const FONT_DISPLAY = "'DM Serif Display', Georgia, serif";
+const FONT_BRAND   = "'Caveat Brush', cursive";
+const FONT_MONO    = "'JetBrains Mono', 'Courier New', monospace";
+const FONT_BODY    = "'Inter', system-ui, sans-serif";
 
 /* ── Section colour bands ────────────────────────────────────────── */
 const SECTION_META: Record<string, { label: string; color: string }> = {
@@ -1455,33 +1463,35 @@ export default function LookbookChat() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", fontFamily: "'Segoe UI', sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", fontFamily: FONT_BODY }}>
 
-      {/* ── HEADER ───────────────────────────────────────────────── */}
+      {/* ── HEADER — editorial top bar with brand mark + live + menu ── */}
       <div style={{
         background: BG, borderBottom: `1px solid ${BORDER}`,
-        padding: "12px 20px", display: "flex", alignItems: "center",
+        padding: "14px 24px", display: "flex", alignItems: "center",
         justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10,
-        boxShadow: "0 1px 8px rgba(0,0,0,0.05)",
       }}>
-        <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
-          <Image
-            src="https://burnt-toast.com/cdn/shop/files/Logo-8_1.png"
-            alt="Burnt Toast" width={110} height={36}
-            style={{ width: "auto", objectFit: "contain" }}
-            priority
-          />
+        <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flex: 1 }}>
+          <span style={{
+            fontFamily: FONT_BRAND, color: TEXT,
+            fontSize: 22, lineHeight: 0.95, letterSpacing: 0,
+            transform: "rotate(-3deg)", display: "inline-block",
+          }}>
+            BURNT<br />TOAST
+          </span>
         </Link>
 
-        <div style={{ textAlign: "center" }}>
-          <div style={{ color: TEXT, fontWeight: 900, fontSize: 14, letterSpacing: 1, fontFamily: "'Courier New',monospace" }}>Ask Toastie</div>
-          <div style={{ color: MUTED, fontSize: 9, letterSpacing: 2, fontFamily: "'Courier New',monospace" }}>YOUR PERSONAL AI STYLIST</div>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <div style={{ color: TEXT, fontWeight: 600, fontSize: 17, fontFamily: FONT_DISPLAY, lineHeight: 1.1 }}>Ask Toastie</div>
+          <div style={{ color: MUTED, fontSize: 9, letterSpacing: 3, fontFamily: FONT_MONO, marginTop: 2 }}>
+            YOUR PERSONAL AI STYLIST
+          </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <div style={{ width: 7, height: 7, background: "#22c55e", borderRadius: "50%", boxShadow: "0 0 6px #22c55e" }} />
-            <span style={{ fontSize: 10, color: "#22c55e", fontFamily: "'Courier New',monospace" }}>LIVE</span>
+            <div style={{ width: 8, height: 8, background: SAGE_DEEP, borderRadius: "50%" }} />
+            <span style={{ fontSize: 11, color: SAGE_DEEP, fontFamily: FONT_MONO, letterSpacing: 1, fontWeight: 500 }}>LIVE</span>
           </div>
           {messages.length > 0 && (
             <button
@@ -1489,9 +1499,9 @@ export default function LookbookChat() {
               title="Start a new chat"
               style={{
                 background: "transparent", border: `1px solid ${BORDER}`,
-                borderRadius: 6, padding: "4px 10px",
-                fontSize: 9, fontWeight: 700, color: MUTED,
-                fontFamily: "'Courier New',monospace", letterSpacing: 1,
+                borderRadius: 999, padding: "5px 14px",
+                fontSize: 10, fontWeight: 500, color: MUTED,
+                fontFamily: FONT_MONO, letterSpacing: 1.5,
                 cursor: "pointer", transition: "all 0.15s",
               }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = TEXT; e.currentTarget.style.color = TEXT; }}
@@ -1506,182 +1516,281 @@ export default function LookbookChat() {
       {/* ── BODY ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
 
-        {/* Welcome screen */}
+        {/* ── WELCOME — editorial fashion magazine hero ─────────────── */}
         {messages.length === 0 && !loading && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 800, margin: "0 auto", width: "100%" }}>
+          <div className="animate-fade-in" style={{ maxWidth: 1100, margin: "20px auto 0", width: "100%", padding: "8px 4px" }}>
 
-            {/* ── Hero card ── */}
-            <div style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 16, padding: "32px 28px", textAlign: "center" }}>
-              <div style={{ color: TEXT, fontSize: 26, fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New',monospace", letterSpacing: 1 }}>
-                Ask Toastie
+            {/* Hero — desktop: 2-col split | mobile: stacked */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr",
+              gap: 32, alignItems: "center",
+            }} className="md:grid-cols-2">
+
+              {/* LEFT — hero title + intro */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "8px 12px" }}>
+                <div style={{ color: MUTED, fontSize: 10, letterSpacing: 4, fontFamily: FONT_MONO, fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
+                  YOUR AI STYLIST
+                  <span style={{ color: TEXT, fontSize: 11 }}>✦</span>
+                </div>
+
+                <h1 style={{
+                  fontFamily: FONT_DISPLAY, color: TEXT,
+                  fontSize: "clamp(48px, 7vw, 84px)",
+                  lineHeight: 0.96, letterSpacing: -1,
+                  fontWeight: 400, margin: 0,
+                }}>
+                  Style<br />
+                  that feels<br />
+                  <em style={{ fontStyle: "italic" }}>like you.</em>
+                </h1>
+
+                {/* Hand-drawn underline */}
+                <svg width="180" height="14" viewBox="0 0 180 14" style={{ marginTop: -8 }}>
+                  <path d="M2 8 Q40 2, 90 6 T178 5" stroke={TEXT} strokeWidth="2" fill="none" strokeLinecap="round" />
+                  <path d="M5 11 Q60 7, 120 9" stroke={TEXT} strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.6" />
+                </svg>
+
+                <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.7, maxWidth: 420, fontFamily: FONT_BODY }}>
+                  Tell Toastie your vibe, occasion, or budget — get a full shoppable look in seconds.
+                </p>
+
+                <div style={{ fontFamily: FONT_BRAND, color: TEXT, fontSize: 22, transform: "rotate(-1deg)", display: "flex", alignItems: "center", gap: 10 }}>
+                  Styled around you. Always.
+                  <span style={{ fontSize: 16, color: MUTED }}>♡</span>
+                </div>
               </div>
-              <div style={{ color: MUTED, fontSize: 9, fontWeight: 700, marginBottom: 14, letterSpacing: 3, fontFamily: "'Courier New',monospace" }}>
-                YOUR PERSONAL AI STYLIST · SPRING 26
-              </div>
-              <div style={{ color: MUTED, fontSize: 13, lineHeight: 1.9, maxWidth: 440, margin: "0 auto" }}>
-                Tell Toastie your <strong style={{ color: TEXT }}>aesthetic</strong>, <strong style={{ color: TEXT }}>occasion</strong>, or <strong style={{ color: TEXT }}>budget</strong> — get a full shoppable Spring 26 look in seconds.
-              </div>
-            </div>
 
-            {/* ── AESTHETIC IDENTITY ── */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ flex: 1, height: 1, background: BORDER }} />
-              <span style={{ color: MUTED, fontSize: 9, fontWeight: 700, letterSpacing: 3, fontFamily: "'Courier New',monospace", whiteSpace: "nowrap" }}>
-                FIND YOUR AESTHETIC
-              </span>
-              <div style={{ flex: 1, height: 1, background: BORDER }} />
-            </div>
+              {/* RIGHT — polaroid collage + tag note */}
+              <div style={{ position: "relative", minHeight: 420, padding: "20px 8px" }}>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-              {AESTHETICS.map((a, i) => (
-                <div
-                  key={i}
-                  onClick={() => send(a.prompt)}
-                  style={{
-                    background: BG, border: `1px solid ${BORDER}`,
-                    borderRadius: 14, overflow: "hidden",
-                    cursor: "pointer", transition: "border-color 0.15s, box-shadow 0.15s",
-                    display: "flex", flexDirection: "column",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = a.color; e.currentTarget.style.boxShadow = `0 4px 20px ${a.color}22`; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.boxShadow = "none"; }}
-                >
-                  {/* Colour bar */}
-                  <div style={{ height: 4, background: a.color }} />
-
-                  <div style={{ padding: "18px 16px 16px", display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
-
-                    {/* Icon + Title row */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{
-                        width: 34, height: 34, borderRadius: 10,
-                        background: a.tagBg, display: "flex",
-                        alignItems: "center", justifyContent: "center", fontSize: 17,
-                        flexShrink: 0,
-                      }}>{a.icon}</div>
-                      <div style={{ color: TEXT, fontWeight: 900, fontSize: 13, letterSpacing: 0.5, fontFamily: "'Courier New',monospace", lineHeight: 1.2 }}>
-                        {a.title.toUpperCase()}
-                      </div>
-                    </div>
-
-                    {/* Style tag chips */}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                      {a.tags.map((tag, t) => (
-                        <span key={t} style={{
-                          background: a.tagBg, color: a.tagColor,
-                          fontSize: 9, fontWeight: 700, padding: "3px 9px",
-                          borderRadius: 20, letterSpacing: 0.5,
-                          fontFamily: "'Courier New',monospace",
-                        }}>{tag}</span>
-                      ))}
-                    </div>
-
-                    {/* Divider */}
-                    <div style={{ height: 1, background: BORDER }} />
-
-                    {/* Occasions list */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 7, flex: 1 }}>
-                      {a.occasions.map((occ, o) => (
-                        <div key={o} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                          <span style={{
-                            fontSize: 13, lineHeight: 1,
-                            marginTop: 1, flexShrink: 0,
-                          }}>{occ.icon}</span>
-                          <span style={{
-                            color: MUTED, fontSize: 11, lineHeight: 1.5,
-                          }}>{occ.label}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* CTA */}
+                {/* Main polaroid (model image) */}
+                <div className="polaroid" style={{
+                  position: "absolute",
+                  width: "62%", aspectRatio: "3/4",
+                  left: "10%", top: "8%",
+                  transform: "rotate(-3deg)",
+                  zIndex: 2,
+                }}>
+                  <div style={{
+                    width: "100%", height: "100%",
+                    background: "linear-gradient(135deg, #C0B5A3 0%, #968878 100%)",
+                    backgroundImage: "url('https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=800&q=80')",
+                    backgroundSize: "cover", backgroundPosition: "center",
+                    position: "relative",
+                  }}>
+                    {/* Caption strip */}
                     <div style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      marginTop: 4,
+                      position: "absolute", bottom: 0, left: 0, right: 0,
+                      padding: "10px 12px",
+                      background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)",
+                      color: "#fff", fontFamily: FONT_MONO, fontSize: 10,
+                      letterSpacing: 2,
                     }}>
-                      <div style={{
-                        color: a.color, fontSize: 10, fontWeight: 700,
-                        fontFamily: "'Courier New',monospace", letterSpacing: 0.5,
-                      }}>
-                        Shop this aesthetic ↗
-                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 500, letterSpacing: 2 }}>DOWNTOWN</div>
+                      <div style={{ fontSize: 8, opacity: 0.85, marginTop: 2 }}>MINIMAL · COOL · ELEVATED</div>
                     </div>
-
                   </div>
                 </div>
+
+                {/* Small accent polaroid (bag) — bottom left */}
+                <div className="polaroid" style={{
+                  position: "absolute",
+                  width: "26%", aspectRatio: "3/4",
+                  left: "-2%", bottom: "8%",
+                  transform: "rotate(-8deg)",
+                  zIndex: 1,
+                }}>
+                  <div style={{
+                    width: "100%", height: "100%",
+                    backgroundImage: "url('https://images.unsplash.com/photo-1591561954557-26941169b49e?w=400&q=80')",
+                    backgroundSize: "cover", backgroundPosition: "center",
+                  }} />
+                </div>
+
+                {/* Tag list polaroid — top right */}
+                <div className="polaroid" style={{
+                  position: "absolute",
+                  width: "32%", padding: "16px 14px 18px",
+                  right: "-4%", top: "12%",
+                  transform: "rotate(4deg)",
+                  zIndex: 3,
+                  background: "#FFFEF5",
+                }}>
+                  <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: TEXT, lineHeight: 2.1 }}>
+                    minimal<br />
+                    downtown<br />
+                    clean girl<br />
+                    soft grunge<br />
+                    elevated basics
+                  </div>
+                </div>
+
+                {/* Small accent polaroid (shoes) — bottom right */}
+                <div className="polaroid" style={{
+                  position: "absolute",
+                  width: "30%", aspectRatio: "1/1",
+                  right: "2%", bottom: "0%",
+                  transform: "rotate(6deg)",
+                  zIndex: 2,
+                }}>
+                  <div style={{
+                    width: "100%", height: "100%",
+                    backgroundImage: "url('https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80')",
+                    backgroundSize: "cover", backgroundPosition: "center",
+                  }} />
+                </div>
+
+                {/* "BT APPROVED" sage stamp */}
+                <div style={{
+                  position: "absolute", right: "30%", bottom: "-2%",
+                  width: 78, height: 78, borderRadius: "50%",
+                  background: SAGE,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transform: "rotate(-10deg)", zIndex: 4,
+                  boxShadow: "0 4px 14px rgba(116, 139, 106, 0.25)",
+                }}>
+                  <div style={{ textAlign: "center", color: TEXT }}>
+                    <div style={{ fontFamily: FONT_BRAND, fontSize: 22, lineHeight: 0.9 }}>BT</div>
+                    <div style={{ fontFamily: FONT_MONO, fontSize: 7, letterSpacing: 1, marginTop: 1, fontWeight: 500 }}>APPROVED</div>
+                  </div>
+                </div>
+
+                {/* Sparkle accent */}
+                <span style={{ position: "absolute", left: "8%", top: "0%", fontSize: 18, color: TEXT, zIndex: 5 }}>✦</span>
+                <span style={{ position: "absolute", right: "0%", top: "0%", fontSize: 14, color: TEXT, zIndex: 5 }}>✦</span>
+              </div>
+            </div>
+
+            {/* Try-prompt suggestions */}
+            <div style={{
+              display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 10,
+              padding: "32px 12px 8px", marginTop: 20,
+              borderTop: `1px solid ${BORDER}`,
+            }}>
+              <span style={{ color: MUTED, fontSize: 10, fontFamily: FONT_MONO, letterSpacing: 2, marginRight: 4 }}>TRY:</span>
+              {[
+                "airport look under ₹4000",
+                "date night soft glam",
+                "what's trending this week?",
+                "college fest look",
+              ].map((prompt, i) => (
+                <button
+                  key={i}
+                  onClick={() => send(prompt)}
+                  style={{
+                    background: "transparent",
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: 999,
+                    padding: "8px 16px",
+                    color: TEXT, fontSize: 12,
+                    fontFamily: FONT_BODY,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = TEXT; e.currentTarget.style.color = BG; e.currentTarget.style.borderColor = TEXT; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = TEXT; e.currentTarget.style.borderColor = BORDER; }}
+                >
+                  &ldquo;{prompt}&rdquo;
+                </button>
               ))}
             </div>
 
+            {/* Footer caption */}
+            <div style={{
+              textAlign: "center", marginTop: 28,
+              color: MUTED, fontSize: 10, letterSpacing: 4,
+              fontFamily: FONT_MONO, fontWeight: 500,
+            }}>
+              POWERED BY STYLE. PERSONALIZED BY AI. <span style={{ color: TEXT, fontSize: 12, marginLeft: 4 }}>✦</span>
+            </div>
           </div>
         )}
 
-        {/* Message thread */}
-        {messages.map((msg, i) => (
-          <div key={i} style={{
-            display: "flex",
-            justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-            gap: 8,
-            width: msg.role === "assistant" ? "100%" : undefined,
-            maxWidth: msg.role === "user" ? "80%" : "100%",
-            alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-          }}>
-            {msg.role === "assistant" && (
-              <div style={{
-                width: 32, height: 32, minWidth: 32, background: TEXT,
-                borderRadius: 8, display: "flex", alignItems: "center",
-                justifyContent: "center", fontSize: 15, marginTop: 2,
-              }}>✨</div>
-            )}
+        {/* Message thread — editorial style */}
+        {messages.length > 0 && (
+          <div style={{ maxWidth: 900, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
+            {messages.map((msg, i) => (
+              <div key={i} style={{
+                display: "flex",
+                justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
+                gap: 10,
+                width: msg.role === "assistant" ? "100%" : undefined,
+                maxWidth: msg.role === "user" ? "80%" : "100%",
+                alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+              }}>
+                {msg.role === "assistant" && (
+                  <div style={{
+                    width: 32, height: 32, minWidth: 32,
+                    background: TEXT, color: BG,
+                    borderRadius: "50%", display: "flex", alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: FONT_BRAND, fontSize: 18, marginTop: 4,
+                    boxShadow: "0 2px 6px rgba(26,26,26,0.15)",
+                  }}>T</div>
+                )}
 
-            <div style={{ flex: msg.role === "assistant" ? 1 : undefined }}>
-              {msg.role === "assistant" ? (
-                msg.parsed
-                  ? <ResponseRenderer data={msg.parsed} onQuickReply={(t) => send(t)} onSelectReplacement={handleSelectReplacement} />
-                  : (
+                <div style={{ flex: msg.role === "assistant" ? 1 : undefined }}>
+                  {msg.role === "assistant" && (
+                    <div style={{ color: MUTED, fontSize: 9, fontFamily: FONT_MONO, letterSpacing: 2, marginBottom: 5, marginLeft: 2 }}>
+                      TOASTIE
+                    </div>
+                  )}
+                  {msg.role === "assistant" ? (
+                    msg.parsed
+                      ? <ResponseRenderer data={msg.parsed} onQuickReply={(t) => send(t)} onSelectReplacement={handleSelectReplacement} />
+                      : (
+                        <div style={{
+                          background: CARD, border: `1px solid ${BORDER}`,
+                          borderRadius: "4px 14px 14px 14px",
+                          padding: "12px 16px", color: TEXT, fontSize: 14, lineHeight: 1.6,
+                          fontFamily: FONT_BODY,
+                        }}>{msg.content || "Let me think about that..."}</div>
+                      )
+                  ) : (
                     <div style={{
-                      background: CARD, border: `1px solid ${BORDER}`,
-                      borderRadius: "4px 12px 12px 12px",
-                      padding: "12px 16px", color: TEXT, fontSize: 13, lineHeight: 1.7,
-                    }}>{msg.content || "Let me think about that..."}</div>
-                  )
-              ) : (
-                <div style={{
-                  background: ACCENT, color: "#fff",
-                  borderRadius: "12px 12px 4px 12px",
-                  padding: "10px 14px", fontSize: 13, lineHeight: 1.5,
-                }}>{msg.content}</div>
-              )}
-            </div>
+                      background: TEXT, color: BG,
+                      borderRadius: "14px 14px 4px 14px",
+                      padding: "10px 16px", fontSize: 13, lineHeight: 1.5,
+                      fontFamily: FONT_BODY,
+                    }}>{msg.content}</div>
+                  )}
+                </div>
 
-            {msg.role === "user" && (
-              <div style={{
-                width: 32, height: 32, minWidth: 32, background: CARD,
-                border: `1px solid ${BORDER}`, borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 15, marginTop: 2,
-              }}>👤</div>
-            )}
+                {msg.role === "user" && (
+                  <div style={{
+                    width: 32, height: 32, minWidth: 32,
+                    background: CARD, border: `1px solid ${BORDER}`,
+                    borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 13, marginTop: 2,
+                    fontFamily: FONT_MONO, color: TEXT, fontWeight: 500,
+                  }}>YOU</div>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
 
         {/* Loading */}
         {loading && (
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <div style={{ maxWidth: 900, margin: "0 auto", width: "100%", display: "flex", gap: 10, alignItems: "flex-start" }}>
             <div style={{
-              width: 32, height: 32, background: TEXT, borderRadius: 8,
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15,
-            }}>✨</div>
+              width: 32, height: 32, background: TEXT, color: BG,
+              borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: FONT_BRAND, fontSize: 18,
+            }}>T</div>
             <div style={{
               background: CARD, border: `1px solid ${BORDER}`,
-              borderRadius: "4px 12px 12px 12px",
-              padding: "14px 18px", display: "flex", gap: 6, alignItems: "center",
+              borderRadius: "4px 14px 14px 14px",
+              padding: "14px 18px", display: "flex", gap: 8, alignItems: "center",
             }}>
-              <span style={{ color: MUTED, fontSize: 12, marginRight: 8, fontFamily: "'Courier New',monospace" }}>
-                Toastie is cooking something fire...
+              <span style={{ color: MUTED, fontSize: 11, marginRight: 4, fontFamily: FONT_MONO, letterSpacing: 2 }}>
+                TOASTIE IS THINKING...
               </span>
               {[0, 1, 2].map(n => (
                 <div key={n} style={{
-                  width: 7, height: 7, background: ACCENT, borderRadius: "50%",
+                  width: 5, height: 5, background: TEXT, borderRadius: "50%",
                   animation: "btpulse 1.2s infinite",
                   animationDelay: `${n * 0.2}s`,
                 }} />
@@ -1693,44 +1802,76 @@ export default function LookbookChat() {
         <div ref={bottomRef} />
       </div>
 
-      {/* ── INPUT BAR ────────────────────────────────────────────── */}
+      {/* ── INPUT BAR — pill style with T avatar + arrow ──────────── */}
       <div style={{
-        padding: "12px 16px", background: BG,
+        padding: "16px 20px 20px", background: BG,
         borderTop: `1px solid ${BORDER}`,
-        display: "flex", gap: 8,
-        boxShadow: "0 -2px 12px rgba(0,0,0,0.05)",
       }}>
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-          placeholder="Ask Toastie — occasion, vibe, budget..."
-          rows={2}
-          style={{
-            flex: 1, background: CARD, border: `1px solid ${BORDER}`,
-            borderRadius: 10, padding: "10px 14px", color: TEXT,
-            fontSize: 13, fontFamily: "'Segoe UI',sans-serif",
-            resize: "none", outline: "none", lineHeight: 1.4,
-            transition: "border-color 0.15s",
-          }}
-          onFocus={e => (e.target.style.borderColor = ACCENT)}
-          onBlur={e => (e.target.style.borderColor = BORDER)}
-        />
-        <button
-          onClick={() => send()}
-          disabled={loading || !input.trim()}
-          style={{
-            background: (!input.trim() || loading) ? CARD : ACCENT,
-            color: (!input.trim() || loading) ? MUTED : "#fff",
-            border: `1px solid ${BORDER}`, borderRadius: 10,
-            padding: "0 20px", fontSize: 18,
-            cursor: (!input.trim() || loading) ? "not-allowed" : "pointer",
-            transition: "all 0.2s",
-          }}
-        >
-          {loading ? "⏳" : "✈️"}
-        </button>
+        <div style={{
+          maxWidth: 900, margin: "0 auto",
+          display: "flex", alignItems: "center", gap: 12,
+          background: CARD, border: `1px solid ${BORDER}`,
+          borderRadius: 999, padding: "10px 10px 10px 14px",
+          transition: "border-color 0.2s, box-shadow 0.2s",
+        }}>
+          {/* T avatar */}
+          <div style={{
+            width: 38, height: 38, minWidth: 38, background: BG,
+            border: `1px solid ${BORDER}`,
+            borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: FONT_BRAND, fontSize: 20, color: TEXT,
+            position: "relative",
+          }}>
+            T
+            {/* sage live dot */}
+            <div style={{
+              position: "absolute", bottom: 1, right: 1,
+              width: 9, height: 9, background: SAGE_DEEP,
+              borderRadius: "50%", border: `2px solid ${CARD}`,
+            }} />
+          </div>
+
+          {/* Brand mini-label */}
+          <div style={{ display: "flex", flexDirection: "column", marginRight: 4, minWidth: 0 }} className="hidden md:flex">
+            <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: TEXT, letterSpacing: 2, fontWeight: 500 }}>TOASTIE</span>
+            <span style={{ fontFamily: FONT_MONO, fontSize: 8, color: MUTED, letterSpacing: 1.5, marginTop: 1 }}>LIVE STYLIST AI</span>
+          </div>
+
+          {/* Input */}
+          <input
+            ref={inputRef as unknown as React.RefObject<HTMLInputElement>}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+            placeholder="Ask Toastie anything..."
+            style={{
+              flex: 1, background: "transparent", border: "none",
+              padding: "8px 6px", color: TEXT,
+              fontSize: 14, fontFamily: FONT_BODY,
+              outline: "none",
+            }}
+          />
+
+          {/* Submit — black circle with up arrow */}
+          <button
+            onClick={() => send()}
+            disabled={loading || !input.trim()}
+            aria-label="Send"
+            style={{
+              background: (!input.trim() || loading) ? CARD : TEXT,
+              color: (!input.trim() || loading) ? MUTED : BG,
+              border: (!input.trim() || loading) ? `1px solid ${BORDER}` : "none",
+              borderRadius: "50%",
+              width: 40, height: 40, minWidth: 40,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16, fontWeight: 700,
+              cursor: (!input.trim() || loading) ? "not-allowed" : "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            {loading ? "…" : "↑"}
+          </button>
+        </div>
       </div>
     </div>
   );

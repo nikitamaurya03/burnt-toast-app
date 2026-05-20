@@ -56,17 +56,21 @@ export default function CategoryShowcase() {
   }
 
   return (
-    <section className="py-20 px-4 sm:px-6 bg-white border-t border-gray-100">
+    <section className="py-20 px-4 sm:px-8" style={{ background: "var(--cream)", borderTop: "1px solid var(--line)" }}>
       <div className="max-w-7xl mx-auto">
 
-        <div className="text-center mb-12">
-          <p className="text-gray-400 text-xs font-medium tracking-widest uppercase mb-2">
-            Shop by Category
+        <div className="text-center mb-14">
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ash)", letterSpacing: 4, fontWeight: 500, marginBottom: 12 }}>
+            SHOP BY CATEGORY <span style={{ color: "var(--ink)" }}>✦</span>
           </p>
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-gray-900">
-            What are you looking for?
+          <h2 style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "clamp(38px, 5vw, 60px)",
+            color: "var(--ink)", lineHeight: 1.05,
+          }}>
+            What are you <em style={{ fontStyle: "italic" }}>looking for?</em>
           </h2>
-          <p className="mt-3 text-gray-500 max-w-xl mx-auto text-sm">
+          <p style={{ marginTop: 16, color: "var(--ash)", fontSize: 14, maxWidth: 540, margin: "16px auto 0", fontFamily: "var(--font-body)" }}>
             Browse the full Spring 26 collection — from statement tops to must-have footwear.
           </p>
         </div>
@@ -117,23 +121,32 @@ export default function CategoryShowcase() {
           ))}
         </div>
 
-        {/* CTA Banner */}
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-8 sm:p-12 text-center">
-          <p className="text-gray-400 text-xs font-medium tracking-widest uppercase mb-3">
-            Your Personal Stylist
+        {/* CTA Banner — editorial style */}
+        <div className="rounded-3xl p-10 sm:p-16 text-center mt-4" style={{ background: "var(--cream-soft)", border: "1px solid var(--line)" }}>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ash)", letterSpacing: 4, fontWeight: 500, marginBottom: 14 }}>
+            YOUR PERSONAL STYLIST <span style={{ color: "var(--sage-deep)" }}>✦</span>
           </p>
-          <h3 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
-            Not sure what to wear?
+          <h3 style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "clamp(30px, 4vw, 48px)",
+            color: "var(--ink)", lineHeight: 1.05, marginBottom: 12,
+          }}>
+            Not sure what to wear? <em style={{ fontStyle: "italic" }}>Ask Toastie.</em>
           </h3>
-          <p className="text-gray-500 max-w-md mx-auto mb-8 text-sm">
-            Drop your occasion, mood, or vibe to Toastie — it builds a full look that slaps in seconds. No cap, bestie.
+          <p style={{ color: "var(--ash)", fontSize: 14, maxWidth: 480, margin: "0 auto 32px", fontFamily: "var(--font-body)", lineHeight: 1.6 }}>
+            Drop your occasion, mood, or vibe — get a full shoppable look in seconds.
           </p>
           <Link
             href="/chat"
-            className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-gray-900 text-white font-semibold text-sm tracking-wider uppercase hover:bg-black hover:scale-105 transition-all duration-300 shadow-md"
+            className="inline-flex items-center gap-3 px-8 py-4 rounded-full transition-all"
+            style={{
+              background: "var(--ink)", color: "var(--cream)",
+              fontFamily: "var(--font-mono)", fontSize: 11,
+              letterSpacing: 2, fontWeight: 500,
+            }}
           >
-            Let Toastie Cook
-            <ArrowRight size={16} />
+            ASK TOASTIE
+            <ArrowRight size={14} />
           </Link>
         </div>
       </div>
