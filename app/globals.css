@@ -65,6 +65,19 @@ body {
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Chat empty-state chip rows: wrap on desktop, horizontal scroll on mobile */
+@media (max-width: 479px) {
+  .chip-row {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    justify-content: flex-start !important;
+    padding: 0 8px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .chip-row::-webkit-scrollbar { display: none; }
+}
+
 ::selection {
   background: var(--sage);
   color: var(--ink);

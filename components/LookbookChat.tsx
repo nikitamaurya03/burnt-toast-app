@@ -3,7 +3,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, ShoppingBag, Check, Plus, Menu, X, Sparkles, User } from "lucide-react";
+import {
+  Heart, ShoppingBag, Check, Plus, Menu, X, Sparkles, User,
+  GraduationCap, Briefcase, Plane, PartyPopper, Coffee, Music,
+  Minus, Building2, Flower2, Cloud, Star, Sun, Moon, Flame,
+} from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { products as allProducts } from "@/data/products";
@@ -1413,6 +1417,8 @@ export default function LookbookChat() {
   const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeOccasion, setActiveOccasion] = useState<string | null>(null);
+  const [activeVibe, setActiveVibe] = useState<string | null>(null);
   const { totalItems: cartCount } = useCart();
   const { totalItems: wishCount } = useWishlist();
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -1735,152 +1741,185 @@ export default function LookbookChat() {
       {/* ── BODY ─────────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflowY: "auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
 
-        {/* ═══ WELCOME — editorial inviting hero ═══════════════════ */}
-        {messages.length === 0 && !loading && (
-          <div className="animate-fade-in" style={{
-            maxWidth: 900, margin: "auto", width: "100%",
-            padding: "32px 12px", display: "flex", flexDirection: "column",
-            alignItems: "center", gap: 32,
-          }}>
+        {/* ═══ WELCOME — compact hero + icon chip rows ═══════════════ */}
+        {messages.length === 0 && !loading && (() => {
+          const OCCASIONS = [
+            { key: "college-fest", label: "College fest", Icon: GraduationCap },
+            { key: "office",       label: "Office",       Icon: Briefcase },
+            { key: "date-night",   label: "Date night",   Icon: Heart },
+            { key: "travel",       label: "Travel",       Icon: Plane },
+            { key: "party",        label: "Party",        Icon: PartyPopper },
+            { key: "brunch",       label: "Brunch",       Icon: Coffee },
+            { key: "wedding",      label: "Wedding",      Icon: Sparkles },
+            { key: "concert",      label: "Concert",      Icon: Music },
+          ];
+          const VIBES = [
+            { key: "minimal",          label: "Minimal",          Icon: Minus },
+            { key: "downtown",         label: "Downtown",         Icon: Building2 },
+            { key: "clean-girl",       label: "Clean girl",       Icon: Flower2 },
+            { key: "soft-grunge",      label: "Soft grunge",      Icon: Cloud },
+            { key: "elevated-basics",  label: "Elevated basics",  Icon: Star },
+            { key: "coquette",         label: "Coquette",         Icon: Sun },
+            { key: "old-money",        label: "Old money",        Icon: Moon },
+            { key: "y2k",              label: "Y2K",              Icon: Flame },
+          ];
 
-            {/* Sparkle preamble */}
-            <div style={{
-              color: MUTED, fontSize: 10, letterSpacing: 4,
-              fontFamily: FONT_MONO, fontWeight: 600,
-              display: "flex", alignItems: "center", gap: 10,
+          function applyChip(kind: "occasion" | "vibe", key: string, label: string) {
+            const nextOccasion = kind === "occasion" ? (activeOccasion === key ? null : key) : activeOccasion;
+            const nextVibe     = kind === "vibe"     ? (activeVibe     === key ? null : key) : activeVibe;
+            if (kind === "occasion") setActiveOccasion(nextOccasion);
+            else                     setActiveVibe(nextVibe);
+
+            const occLabel  = nextOccasion ? (OCCASIONS.find(o => o.key === nextOccasion)?.label.toLowerCase() ?? "") : "";
+            const vibeLabel = nextVibe     ? (VIBES.find(v => v.key === nextVibe)?.label.toLowerCase() ?? "")         : "";
+            let query = "";
+            if (occLabel && vibeLabel)      query = `Style me for ${occLabel} with a ${vibeLabel} vibe`;
+            else if (occLabel)              query = `Style me for ${occLabel}`;
+            else if (vibeLabel)             query = `Show me a ${vibeLabel} outfit`;
+            setInput(query);
+            // Suppress unused var warning if `label` is unused
+            void label;
+            // Auto-focus the input so user can edit/append
+            setTimeout(() => inputRef.current?.focus(), 0);
+          }
+
+          const chipBase: React.CSSProperties = {
+            display: "inline-flex", alignItems: "center", gap: 8,
+            height: 38, padding: "0 16px",
+            background: "transparent", border: `1px solid ${BORDER}`,
+            borderRadius: 999, cursor: "pointer",
+            fontFamily: FONT_BODY, fontSize: 13, fontWeight: 500,
+            color: TEXT, whiteSpace: "nowrap",
+            transition: "all 180ms ease",
+          };
+          const activeChip: React.CSSProperties = {
+            background: SAGE, borderColor: SAGE_DEEP, color: "#fff",
+          };
+          const sectionLabel: React.CSSProperties = {
+            fontFamily: FONT_MONO, fontSize: 11, color: MUTED,
+            letterSpacing: 2, fontWeight: 600, textTransform: "uppercase",
+            display: "flex", alignItems: "center", gap: 8,
+          };
+
+          return (
+            <div className="animate-fade-in" style={{
+              maxWidth: 760, margin: "auto", width: "100%",
+              padding: "16px 12px", display: "flex", flexDirection: "column",
+              alignItems: "center", gap: 24,
             }}>
-              <span style={{ color: TEXT }}>✦</span>
-              YOUR PERSONAL AI STYLIST
-              <span style={{ color: TEXT }}>✦</span>
-            </div>
 
-            {/* Greeting */}
-            <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 14 }}>
-              <h1 style={{
-                fontFamily: FONT_DISPLAY, color: TEXT,
-                fontSize: "clamp(40px, 6vw, 68px)",
-                lineHeight: 1.0, letterSpacing: -0.5, fontWeight: 400, margin: 0,
-              }}>
-                What&apos;s the <em style={{ fontStyle: "italic" }}>vibe</em> today?
-              </h1>
+              {/* Hero — compact */}
+              <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{
+                  color: MUTED, fontSize: 10, letterSpacing: 3,
+                  fontFamily: FONT_MONO, fontWeight: 600,
+                  display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "center",
+                }}>
+                  <span style={{ color: TEXT }}>✦</span>
+                  YOUR PERSONAL AI STYLIST
+                  <span style={{ color: TEXT }}>✦</span>
+                </div>
 
-              {/* Hand-drawn underline */}
-              <svg width="220" height="14" viewBox="0 0 220 14" style={{ alignSelf: "center", marginTop: -4 }}>
-                <path d="M2 8 Q50 2, 110 6 T218 5" stroke={TEXT} strokeWidth="2" fill="none" strokeLinecap="round" />
-                <path d="M8 11 Q80 7, 150 9" stroke={TEXT} strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.5" />
-              </svg>
+                <h1 style={{
+                  fontFamily: FONT_DISPLAY, color: TEXT,
+                  fontSize: "clamp(28px, 4vw, 44px)",
+                  lineHeight: 1.05, letterSpacing: -0.5, fontWeight: 400, margin: "4px 0 0",
+                }}>
+                  What&apos;s the <em style={{ fontStyle: "italic" }}>vibe</em> today?
+                </h1>
 
-              <p style={{
-                color: MUTED, fontSize: 15, lineHeight: 1.7,
-                maxWidth: 480, fontFamily: FONT_BODY, margin: "8px auto 0",
-              }}>
-                Tell Toastie your occasion, mood, or budget — get a full shoppable look in seconds.
-              </p>
-            </div>
+                <p style={{
+                  color: MUTED, fontSize: 13, lineHeight: 1.5,
+                  maxWidth: 460, fontFamily: FONT_BODY, margin: "2px auto 0",
+                }}>
+                  Tell Toastie your occasion, mood, or budget.
+                </p>
+              </div>
 
-            {/* 2x2 polaroid suggestion grid */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: 22, maxWidth: 680, width: "100%",
-              marginTop: 12,
-            }}>
-              {[
-                { emoji: "🎓", title: "College fest look",   sub: "MAIN STAGE READY",     tilt: -2.5, prompt: "college fest look — bold and statement-making" },
-                { emoji: "💼", title: "Office to drinks",    sub: "DAY → NIGHT",          tilt: 2,    prompt: "office to drinks outfit — smart but fun" },
-                { emoji: "💕", title: "First date energy",   sub: "QUIETLY ELEVATED",     tilt: -1.5, prompt: "first date outfit — feminine and confident" },
-                { emoji: "✈️", title: "Travel-day comfort", sub: "AIRPORT CHIC",         tilt: 2.5,  prompt: "travel day comfort outfit under ₹4000" },
-              ].map((card, i) => (
-                <button
-                  key={i}
-                  onClick={() => send(card.prompt)}
+              {/* OCCASIONS row */}
+              <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+                <div style={sectionLabel}>
+                  <span style={{ color: TEXT, fontSize: 8 }}>◆</span>
+                  OCCASIONS
+                </div>
+                <div
+                  className="chip-row"
                   style={{
-                    background: "#FFFEF5",
-                    border: `1px solid ${BORDER}`,
-                    padding: "16px 16px 18px",
-                    borderRadius: 4,
-                    cursor: "pointer",
-                    textAlign: "left",
-                    display: "flex", flexDirection: "column", gap: 14,
-                    transform: `rotate(${card.tilt}deg)`,
-                    boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
-                    transition: "transform 0.25s, box-shadow 0.25s",
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.transform = `rotate(0deg) translateY(-4px)`;
-                    e.currentTarget.style.boxShadow = "0 12px 28px rgba(0,0,0,0.12)";
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = `rotate(${card.tilt}deg)`;
-                    e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,0.06)";
+                    display: "flex", flexWrap: "wrap", justifyContent: "center",
+                    gap: 8, maxWidth: 720, width: "100%",
                   }}
                 >
-                  {/* Image block */}
-                  <div style={{
-                    aspectRatio: "1/1", background: CARD,
-                    border: `1px solid ${BORDER}`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 64, position: "relative", overflow: "hidden",
-                  }}>
-                    <span>{card.emoji}</span>
-                    {/* mini sage corner stamp */}
-                    {i === 0 && (
-                      <div style={{
-                        position: "absolute", top: 8, right: 8,
-                        width: 38, height: 38, borderRadius: "50%",
-                        background: SAGE,
-                        display: "flex", flexDirection: "column",
-                        alignItems: "center", justifyContent: "center",
-                        transform: "rotate(-12deg)",
-                        boxShadow: "0 2px 6px rgba(116,139,106,0.3)",
-                      }}>
-                        <div style={{ fontFamily: FONT_BRAND, fontSize: 12, color: TEXT, lineHeight: 0.9 }}>BT</div>
-                        <div style={{ fontFamily: FONT_MONO, fontSize: 5, color: TEXT, letterSpacing: 0.8, fontWeight: 500 }}>APPROVED</div>
-                      </div>
-                    )}
-                  </div>
-                  {/* Caption */}
-                  <div>
-                    <div style={{
-                      fontFamily: FONT_DISPLAY, fontSize: 19,
-                      color: TEXT, lineHeight: 1.1, marginBottom: 4,
-                      fontStyle: "italic",
-                    }}>
-                      {card.title}
-                    </div>
-                    <div style={{
-                      fontFamily: FONT_MONO, fontSize: 9,
-                      color: MUTED, letterSpacing: 2, fontWeight: 500,
-                    }}>
-                      {card.sub}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                  {OCCASIONS.map(({ key, label, Icon }) => {
+                    const active = activeOccasion === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => applyChip("occasion", key, label)}
+                        style={{ ...chipBase, ...(active ? activeChip : {}) }}
+                        onMouseEnter={e => {
+                          if (active) return;
+                          e.currentTarget.style.background = "#FFFEF5";
+                          e.currentTarget.style.borderColor = SAGE;
+                          e.currentTarget.style.transform = "translateY(-1px)";
+                        }}
+                        onMouseLeave={e => {
+                          if (active) return;
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.borderColor = BORDER;
+                          e.currentTarget.style.transform = "translateY(0)";
+                        }}
+                      >
+                        <Icon size={16} color={active ? "#fff" : TEXT} />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-            {/* Brand hand-written tag line */}
-            <div style={{
-              fontFamily: FONT_BRAND, color: TEXT, fontSize: 22,
-              transform: "rotate(-1deg)", display: "flex",
-              alignItems: "center", gap: 10, marginTop: 8,
-            }}>
-              Styled around you. Always.
-              <span style={{ fontSize: 16, color: MUTED }}>♡</span>
+              {/* VIBES row */}
+              <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+                <div style={sectionLabel}>
+                  <span style={{ color: TEXT, fontSize: 8 }}>◆</span>
+                  VIBES
+                </div>
+                <div
+                  className="chip-row"
+                  style={{
+                    display: "flex", flexWrap: "wrap", justifyContent: "center",
+                    gap: 8, maxWidth: 720, width: "100%",
+                  }}
+                >
+                  {VIBES.map(({ key, label, Icon }) => {
+                    const active = activeVibe === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => applyChip("vibe", key, label)}
+                        style={{ ...chipBase, ...(active ? activeChip : {}) }}
+                        onMouseEnter={e => {
+                          if (active) return;
+                          e.currentTarget.style.background = "#FFFEF5";
+                          e.currentTarget.style.borderColor = SAGE;
+                          e.currentTarget.style.transform = "translateY(-1px)";
+                        }}
+                        onMouseLeave={e => {
+                          if (active) return;
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.borderColor = BORDER;
+                          e.currentTarget.style.transform = "translateY(0)";
+                        }}
+                      >
+                        <Icon size={16} color={active ? "#fff" : TEXT} />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-
-            {/* Footer caption */}
-            <div style={{
-              textAlign: "center",
-              color: MUTED, fontSize: 9, letterSpacing: 4,
-              fontFamily: FONT_MONO, fontWeight: 600,
-              borderTop: `1px solid ${BORDER}`, paddingTop: 20, marginTop: 8,
-              width: "100%", maxWidth: 500,
-            }}>
-              POWERED BY STYLE · PERSONALIZED BY AI <span style={{ color: TEXT, fontSize: 11, marginLeft: 4 }}>✦</span>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Message thread — editorial style */}
         {messages.length > 0 && (
