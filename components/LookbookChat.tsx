@@ -418,28 +418,7 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
           <Heart size={11} fill={wishlisted ? "#ef4444" : "none"} color={wishlisted ? "#ef4444" : "#888"} />
         </button>
 
-        {/* Color swatch — bottom-left so it's always visible on the image */}
-        {item.colors && item.colors.length > 0 && (
-          <div
-            title={item.colors.join(" / ")}
-            style={{
-              position: "absolute", bottom: 5, left: 5,
-              display: "flex", alignItems: "center", gap: 3,
-              background: "rgba(255,255,255,0.92)",
-              padding: "2px 5px 2px 3px", borderRadius: 10,
-              boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
-            }}
-          >
-            <span style={{
-              width: 8, height: 8, borderRadius: "50%",
-              background: colorBg(item.colors[0]),
-              border: /^(white|cream)$/i.test(item.colors[0]) ? "1px solid #d1d5db" : "1px solid rgba(0,0,0,0.1)",
-            }} />
-            <span style={{ fontSize: 8, fontWeight: 800, color: "#111", letterSpacing: 0.3, textTransform: "uppercase", fontFamily: "'Courier New',monospace" }}>
-              {item.colors[0]}
-            </span>
-          </div>
-        )}
+        {/* On-image color swatch removed for a cleaner editorial card */}
       </div>
 
       {/* Card body */}
@@ -449,7 +428,6 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
           overflow: "hidden", display: "-webkit-box",
           WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
         }}>{item.name}</div>
-        <ColorChip colors={item.colors} />
         <div style={{ color: meta.color, fontWeight: 900, fontSize: 13, fontFamily: "'Courier New',monospace" }}>₹{item.price}</div>
 
         {/* ADD / ADDED button */}
