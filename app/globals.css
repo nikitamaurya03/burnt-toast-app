@@ -78,6 +78,13 @@ body {
   .chip-row::-webkit-scrollbar { display: none; }
 }
 
+/* Outfit product card — hover ghost preview (image scale + VIEW DETAILS overlay) */
+.bt-card:hover .bt-card-img { transform: scale(1.04); }
+.bt-card:hover .bt-card-overlay {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 ::selection {
   background: var(--sage);
   color: var(--ink);

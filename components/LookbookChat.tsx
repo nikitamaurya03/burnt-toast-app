@@ -30,17 +30,18 @@ const FONT_BRAND   = "'Caveat Brush', cursive";
 const FONT_MONO    = "'JetBrains Mono', 'Courier New', monospace";
 const FONT_BODY    = "'Inter', system-ui, sans-serif";
 
-/* ── Section colour bands ────────────────────────────────────────── */
+/* ── Section labels — one unified ink accent across all categories ── */
+const INK = "#1A1A1A";
 const SECTION_META: Record<string, { label: string; color: string }> = {
-  top:        { label: "TOP",        color: "#2563EB" },
-  bottom:     { label: "BOTTOM",     color: "#0891B2" },
-  dress:      { label: "DRESS",      color: "#DB2777" },
-  footwear:   { label: "FOOTWEAR",   color: "#7C3AED" },
-  bag:        { label: "BAG",        color: "#B45309" },
-  sunglasses: { label: "SUNGLASSES", color: "#059669" },
-  necklace:   { label: "NECKLACE",   color: "#E11D48" },
-  hat:        { label: "HAT",        color: "#0E7490" },
-  watch:      { label: "WATCH",      color: "#475569" },
+  top:        { label: "TOP",        color: INK },
+  bottom:     { label: "BOTTOM",     color: INK },
+  dress:      { label: "DRESS",      color: INK },
+  footwear:   { label: "FOOTWEAR",   color: INK },
+  bag:        { label: "BAG",        color: INK },
+  sunglasses: { label: "SUNGLASSES", color: INK },
+  necklace:   { label: "NECKLACE",   color: INK },
+  hat:        { label: "HAT",        color: INK },
+  watch:      { label: "WATCH",      color: INK },
 };
 
 /* ── Aesthetic identities ────────────────────────────────────────── */
@@ -357,34 +358,54 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
     toggleItem(product);
   }
 
+  /* short, readable SKU tail for the polaroid footer */
+  const skuTail = (item.sku || "").slice(-6).toUpperCase();
+  const firstColor = item.colors?.[0];
+
   return (
     <div
+      className="bt-card"
       style={{
-        background: BG,
-        border: `1px solid ${showSizes ? meta.color : BORDER}`,
+        background: "#FFFFFF",
+        border: `1px solid ${showSizes ? TEXT : BORDER}`,
         borderRadius: 10, overflow: "hidden",
         display: "flex", flexDirection: "column",
         cursor: "pointer",
-        boxShadow: showSizes ? `0 0 0 2px ${meta.color}22` : "0 1px 4px rgba(0,0,0,0.05)",
+        boxShadow: showSizes ? `0 0 0 2px rgba(26,26,26,0.10)` : "0 1px 3px rgba(0,0,0,0.04)",
         transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
       }}
       onClick={() => !showSizes && item.url && window.open(item.url, "_blank", "noopener,noreferrer")}
-      onMouseEnter={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 5px 16px rgba(0,0,0,0.10)"; }}}
-      onMouseLeave={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.05)"; }}}
+      onMouseEnter={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 18px rgba(0,0,0,0.08)"; e.currentTarget.style.borderColor = TEXT; }}}
+      onMouseLeave={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; e.currentTarget.style.borderColor = BORDER; }}}
     >
-      {/* Colour band */}
-      <div style={{ height: 3, background: meta.color }} />
-
-      {/* Square image */}
+      {/* (#4) Category caption above the image — magazine-style rule line */}
       <div style={{
-        background: CARD, position: "relative",
+        display: "flex", alignItems: "center", gap: 6,
+        padding: "8px 10px 4px",
+      }}>
+        <span style={{
+          fontFamily: "'JetBrains Mono','Courier New',monospace",
+          fontSize: 8, fontWeight: 600, letterSpacing: 2,
+          color: TEXT, whiteSpace: "nowrap",
+        }}>— {meta.label}</span>
+        <span style={{ flex: 1, height: 1, background: BORDER }} />
+      </div>
+
+      {/* Square image — uniform 1:1 ratio, soft cream stage so product pops */}
+      <div style={{
+        background: "#F5F1E8", position: "relative",
         width: "100%", paddingBottom: "100%", overflow: "hidden",
       }}>
         {item.img && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.img} alt={item.name}
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center" }}
+            className="bt-card-img"
+            style={{
+              position: "absolute", inset: 0, width: "100%", height: "100%",
+              objectFit: "cover", objectPosition: "top center",
+              transition: "transform 350ms cubic-bezier(0.16,1,0.3,1)",
+            }}
             onError={() => setImgError(true)}
           />
         ) : (
@@ -393,14 +414,25 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
           </span>
         )}
 
-        {/* Section label badge */}
-        <div style={{
-          position: "absolute", top: 5, left: 5,
-          background: meta.color, color: "#fff",
-          fontSize: 7, fontWeight: 900, padding: "2px 6px",
-          borderRadius: 3, letterSpacing: 1.2,
-          fontFamily: "'Courier New', monospace",
-        }}>{meta.label}</div>
+        {/* (#1) Hover ghost-preview overlay — VIEW DETAILS */}
+        <div
+          className="bt-card-overlay"
+          style={{
+            position: "absolute", left: 0, right: 0, bottom: 0,
+            padding: "10px 12px",
+            background: "linear-gradient(to top, rgba(26,26,26,0.78), rgba(26,26,26,0))",
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            color: "#FFFFFF",
+            fontFamily: "'JetBrains Mono','Courier New',monospace",
+            fontSize: 9, letterSpacing: 2, fontWeight: 600,
+            opacity: 0, transform: "translateY(6px)",
+            transition: "opacity 250ms ease, transform 250ms ease",
+            pointerEvents: "none",
+          }}
+        >
+          <span>VIEW DETAILS</span>
+          <span style={{ fontSize: 13 }}>→</span>
+        </div>
 
         {/* Wishlist button */}
         <button
@@ -421,6 +453,28 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
         {/* On-image color swatch removed for a cleaner editorial card */}
       </div>
 
+      {/* (#3) Polaroid footer strip — film-roll caption with color dot + SKU tail */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        padding: "6px 10px",
+        background: "#FAFAF6",
+        borderTop: `1px solid ${BORDER}`,
+        fontFamily: "'JetBrains Mono','Courier New',monospace",
+        fontSize: 8, letterSpacing: 1.2, color: MUTED, fontWeight: 600,
+      }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          {firstColor && (
+            <span style={{
+              width: 7, height: 7, borderRadius: "50%",
+              background: colorBg(firstColor),
+              border: /^(white|cream)$/i.test(firstColor) ? "1px solid #d1d5db" : "1px solid rgba(0,0,0,0.1)",
+            }} />
+          )}
+          <span>N° {skuTail || "—"}</span>
+        </span>
+        <span style={{ opacity: 0.6 }}>✦</span>
+      </div>
+
       {/* Card body */}
       <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
         <div style={{
@@ -428,21 +482,24 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
           overflow: "hidden", display: "-webkit-box",
           WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
         }}>{item.name}</div>
-        <div style={{ color: meta.color, fontWeight: 900, fontSize: 13, fontFamily: "'Courier New',monospace" }}>₹{item.price}</div>
+        <div style={{ color: TEXT, fontWeight: 800, fontSize: 13, fontFamily: "'JetBrains Mono','Courier New',monospace", letterSpacing: 0.3 }}>₹{item.price}</div>
 
         {/* ADD / ADDED button */}
         <button
           onClick={handleCart}
           style={{
             marginTop: "auto",
-            width: "100%", padding: "6px 8px", borderRadius: 6, border: "none",
-            background: cartAdded || inCart ? ACCENT : showSizes ? meta.color : "#f3f4f6",
+            width: "100%", padding: "8px 8px", borderRadius: 8,
+            border: cartAdded || inCart || showSizes ? "none" : `1px solid ${BORDER}`,
+            background: cartAdded || inCart ? TEXT : showSizes ? TEXT : "#FAFAF6",
             color: cartAdded || inCart || showSizes ? "#fff" : TEXT,
-            fontSize: 9, fontWeight: 700,
-            fontFamily: "'Courier New',monospace", letterSpacing: 0.8,
+            fontSize: 9, fontWeight: 600,
+            fontFamily: "'JetBrains Mono','Courier New',monospace", letterSpacing: 1.2,
             cursor: "pointer", transition: "all 0.2s",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
           }}
+          onMouseEnter={e => { if (!cartAdded && !inCart && !showSizes) e.currentTarget.style.background = "#FFFFFF"; }}
+          onMouseLeave={e => { if (!cartAdded && !inCart && !showSizes) e.currentTarget.style.background = "#FAFAF6"; }}
         >
           {cartAdded
             ? <><Check size={9} /> ADDED!</>
@@ -555,7 +612,7 @@ function StyleNotesPanel({ notes }: { notes: StyleNotes }) {
 
 /* ── Single outfit block (reused in both outfit + multi) ─────────── */
 function OutfitBlock({
-  outfit, occasion, vibe, total, budget_note, label, style_notes,
+  outfit, occasion, vibe, total, budget_note, label, style_notes, lookNumber,
 }: {
   outfit: OutfitPair;
   occasion: string;
@@ -564,7 +621,10 @@ function OutfitBlock({
   budget_note: string;
   label?: string;
   style_notes?: StyleNotes;
+  lookNumber?: number;
 }) {
+  // mute unused-var TS for style_notes (kept in API contract, hidden from UI)
+  void style_notes;
   // All available items in display order — every slot is its own key
   // Order: dress first if present (replaces top+bottom), else top → bottom → rest
   const allKeys = (["dress", "top", "bottom", "footwear", "bag", "sunglasses", "necklace", "hat", "watch"] as const).filter(k => outfit?.[k]?.name);
@@ -610,37 +670,56 @@ function OutfitBlock({
     }
   }
 
+  /* (#2) Outfit watermark — couture lookbook page number */
+  const outfitNumber = String(lookNumber ?? 1).padStart(2, "0");
+
   return (
     <div style={{
-      background: BG, border: `1px solid ${BORDER}`,
-      borderRadius: 14, overflow: "hidden",
+      background: "#FFFFFF",
+      border: `1px solid ${BORDER}`,
+      borderRadius: 16, overflow: "hidden",
+      boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 8px 24px rgba(0,0,0,0.04)",
+      position: "relative",
     }}>
+      {/* (#2) Faint serif "OUTFIT N°XX" watermark, top-right couture corner */}
+      <div style={{
+        position: "absolute", top: 14, right: 18,
+        fontFamily: FONT_DISPLAY,
+        fontSize: 26, fontStyle: "italic",
+        color: TEXT, opacity: 0.08,
+        letterSpacing: -0.5, lineHeight: 1,
+        pointerEvents: "none", userSelect: "none",
+        zIndex: 1,
+      }}>
+        Outfit N°{outfitNumber}
+      </div>
+
       {/* Label strip for multi-look */}
       {label && (
         <div style={{
-          background: ACCENT, color: "#fff",
-          padding: "7px 14px", fontSize: 10, fontWeight: 900,
-          letterSpacing: 2, fontFamily: "'Courier New',monospace",
+          background: TEXT, color: "#FFFFFF",
+          padding: "8px 16px", fontSize: 10, fontWeight: 600,
+          letterSpacing: 2.5, fontFamily: "'JetBrains Mono','Courier New',monospace",
         }}>
           LOOK — {label.toUpperCase()}
         </div>
       )}
 
-      <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-        {/* Occasion + vibe badges */}
+      <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Occasion + vibe badges — ink/outline pair, no rainbow */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {occasion && (
             <span style={{
-              background: ACCENT, color: "#fff", fontSize: 9, fontWeight: 900,
-              padding: "2px 9px", borderRadius: 4, letterSpacing: 1.5,
-              fontFamily: "'Courier New',monospace",
+              background: TEXT, color: "#FFFFFF", fontSize: 9, fontWeight: 600,
+              padding: "3px 10px", borderRadius: 999, letterSpacing: 2,
+              fontFamily: "'JetBrains Mono','Courier New',monospace",
             }}>{occasion.toUpperCase()}</span>
           )}
           {vibe && (
             <span style={{
-              border: `1px solid ${ACCENT}`, color: ACCENT, fontSize: 9, fontWeight: 900,
-              padding: "2px 9px", borderRadius: 4, letterSpacing: 1.5,
-              fontFamily: "'Courier New',monospace",
+              border: `1px solid ${TEXT}`, color: TEXT, fontSize: 9, fontWeight: 600,
+              padding: "3px 10px", borderRadius: 999, letterSpacing: 2,
+              fontFamily: "'JetBrains Mono','Courier New',monospace",
             }}>{vibe}</span>
           )}
         </div>
@@ -753,16 +832,16 @@ function OutfitBlock({
         {/* Total + add-look-to-cart */}
         {allKeys.length > 0 && (
           <div style={{
-            background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10,
-            padding: "10px 12px", display: "flex",
+            background: "#FAFAF6", border: `1px solid ${BORDER}`, borderRadius: 12,
+            padding: "14px 16px", display: "flex",
             alignItems: "center", justifyContent: "space-between", gap: 8,
           }}>
             <div>
-              <div style={{ color: MUTED, fontSize: 9, fontFamily: "'Courier New',monospace", letterSpacing: 1 }}>TOTAL</div>
-              <div style={{ color: TEXT, fontSize: 22, fontWeight: 900, fontFamily: "'Courier New',monospace" }}>
+              <div style={{ color: MUTED, fontSize: 9, fontFamily: "'JetBrains Mono','Courier New',monospace", letterSpacing: 2.5, fontWeight: 600 }}>TOTAL</div>
+              <div style={{ color: TEXT, fontSize: 24, fontWeight: 800, fontFamily: "'JetBrains Mono','Courier New',monospace", marginTop: 2 }}>
                 ₹{(total || 0).toLocaleString("en-IN")}
               </div>
-              <div style={{ color: MUTED, fontSize: 10, marginTop: 2 }}>{budget_note}</div>
+              <div style={{ color: MUTED, fontSize: 11, marginTop: 2, fontStyle: "italic" }}>{budget_note}</div>
             </div>
             <button
               onClick={handleLookCartClick}
@@ -862,9 +941,10 @@ function OutfitRenderer({ data, onQuickReply }: { data: OutfitData; onQuickReply
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{
-        background: CARD, border: `1px solid ${BORDER}`,
-        borderRadius: 12, padding: "13px 15px",
-        color: TEXT, fontSize: 13, lineHeight: 1.75,
+        background: "#FFFFFF", border: `1px solid ${BORDER}`,
+        borderRadius: 14, padding: "14px 18px",
+        color: TEXT, fontSize: 14, lineHeight: 1.75,
+        boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
       }}>{data.message}</div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -882,6 +962,7 @@ function OutfitRenderer({ data, onQuickReply }: { data: OutfitData; onQuickReply
         total={data.total}
         budget_note={data.budget_note}
         style_notes={data.style_notes}
+        lookNumber={1}
       />
 
       {data.next_question && (
@@ -900,9 +981,10 @@ function MultiRenderer({ data, onQuickReply }: { data: MultiData; onQuickReply: 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{
-        background: CARD, border: `1px solid ${BORDER}`,
-        borderRadius: 12, padding: "13px 15px",
-        color: TEXT, fontSize: 13, lineHeight: 1.75,
+        background: "#FFFFFF", border: `1px solid ${BORDER}`,
+        borderRadius: 14, padding: "14px 18px",
+        color: TEXT, fontSize: 14, lineHeight: 1.75,
+        boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
       }}>{data.message}</div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -914,7 +996,7 @@ function MultiRenderer({ data, onQuickReply }: { data: MultiData; onQuickReply: 
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {(data.looks ?? []).map(look => (
+        {(data.looks ?? []).map((look, i) => (
           <OutfitBlock
             key={look.look_number}
             outfit={look.outfit}
@@ -924,6 +1006,7 @@ function MultiRenderer({ data, onQuickReply }: { data: MultiData; onQuickReply: 
             budget_note={look.budget_note}
             label={look.label}
             style_notes={look.style_notes}
+            lookNumber={look.look_number ?? i + 1}
           />
         ))}
       </div>
