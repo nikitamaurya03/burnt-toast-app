@@ -1582,7 +1582,7 @@ export default function LookbookChat() {
     <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", fontFamily: FONT_BODY }}>
 
       {/* ═══ HEADER ═══════════════════════════════════════════════ */}
-      <header style={{
+      <header className="bt-chat-header" style={{
         background: BG, borderBottom: `1px solid ${BORDER}`,
         padding: "12px 20px", display: "flex", alignItems: "center",
         justifyContent: "space-between", position: "sticky", top: 0, zIndex: 30,
@@ -1614,11 +1614,11 @@ export default function LookbookChat() {
         </div>
 
         {/* Center — Ask Toastie title */}
-        <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ color: TEXT, fontWeight: 600, fontSize: 18, fontFamily: FONT_DISPLAY, lineHeight: 1.1 }}>
+        <div className="bt-chat-header-center" style={{ textAlign: "center", flex: 1 }}>
+          <div className="bt-chat-header-title" style={{ color: TEXT, fontWeight: 600, fontSize: 18, fontFamily: FONT_DISPLAY, lineHeight: 1.1 }}>
             Ask Toastie
           </div>
-          <div style={{ color: MUTED, fontSize: 9, letterSpacing: 3, fontFamily: FONT_MONO, marginTop: 2, fontWeight: 500 }}>
+          <div className="bt-chat-header-sub" style={{ color: MUTED, fontSize: 9, letterSpacing: 3, fontFamily: FONT_MONO, marginTop: 2, fontWeight: 500 }}>
             YOUR PERSONAL AI STYLIST
           </div>
         </div>
@@ -1674,7 +1674,7 @@ export default function LookbookChat() {
       </header>
 
       {/* ═══ BODY — sidebar + chat panel ══════════════════════════ */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
+      <div className="bt-chat-body" style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
 
         {/* ─── SIDEBAR ───────────────────────────────────────────── */}
         <aside
@@ -1689,7 +1689,7 @@ export default function LookbookChat() {
             transform: sidebarOpen ? "translateX(0)" : undefined,
             transition: "transform 0.3s",
           }}
-          className={sidebarOpen ? "" : "hidden lg:flex"}
+          className={`bt-sidebar bt-sidebar-${sidebarOpen ? "open" : "closed"} ${sidebarOpen ? "" : "hidden lg:flex"}`}
         >
           {/* + New chat */}
           <button
@@ -1774,18 +1774,18 @@ export default function LookbookChat() {
           <div
             onClick={() => setSidebarOpen(false)}
             style={{
-              position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)",
-              zIndex: 24,
+              position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)",
+              zIndex: 40,
             }}
-            className="lg:hidden"
+            className="bt-sidebar-backdrop lg:hidden"
           />
         )}
 
         {/* ─── CHAT PANEL ────────────────────────────────────────── */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div className="bt-chat-panel" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
       {/* ── BODY ─────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
+      <div className="bt-chat-scroll" style={{ flex: 1, overflowY: "auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
 
         {/* ═══ WELCOME — compact hero + icon chip rows ═══════════════ */}
         {messages.length === 0 && !loading && (() => {
@@ -1848,7 +1848,7 @@ export default function LookbookChat() {
           };
 
           return (
-            <div className="animate-fade-in" style={{
+            <div className="animate-fade-in bt-hero" style={{
               maxWidth: 760, margin: "auto", width: "100%",
               padding: "16px 12px", display: "flex", flexDirection: "column",
               alignItems: "center", gap: 24,
@@ -1969,7 +1969,7 @@ export default function LookbookChat() {
 
         {/* Message thread — editorial style */}
         {messages.length > 0 && (
-          <div style={{ maxWidth: 900, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
+          <div className="bt-message-thread" style={{ maxWidth: 900, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: 20 }}>
             {messages.map((msg, i) => (
               <div key={i} style={{
                 display: "flex",
@@ -2063,14 +2063,14 @@ export default function LookbookChat() {
       </div>
 
       {/* ═══ INPUT BAR ════════════════════════════════════════════ */}
-      <div style={{
+      <div className="bt-input-bar" style={{
         padding: "16px 20px 20px", background: BG,
         borderTop: `1px solid ${BORDER}`,
       }}>
-        <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="bt-input-inner" style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10 }}>
 
           {/* Pill input */}
-          <div style={{
+          <div className="bt-input-pill" style={{
             display: "flex", alignItems: "center", gap: 12,
             background: CARD, border: `1px solid ${BORDER}`,
             borderRadius: 999, padding: "10px 10px 10px 14px",
