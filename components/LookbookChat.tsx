@@ -1472,13 +1472,15 @@ export default function LookbookChat() {
         justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10,
       }}>
         <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flex: 1 }}>
-          <span style={{
-            fontFamily: FONT_BRAND, color: TEXT,
-            fontSize: 22, lineHeight: 0.95, letterSpacing: 0,
-            transform: "rotate(-3deg)", display: "inline-block",
-          }}>
-            BURNT<br />TOAST
-          </span>
+          <Image
+            src="https://burnt-toast.com/cdn/shop/files/Logo-8_1.png"
+            alt="Burnt Toast"
+            width={110}
+            height={36}
+            style={{ width: "auto", height: 36, objectFit: "contain" }}
+            priority
+            unoptimized
+          />
         </Link>
 
         <div style={{ textAlign: "center", flex: 1 }}>

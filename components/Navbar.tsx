@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ShoppingBag, Heart, Menu, X } from "lucide-react";
 import { useCart } from "@/context/CartContext";
@@ -47,17 +48,18 @@ export default function Navbar() {
     >
       <nav className="max-w-7xl mx-auto px-5 sm:px-8 flex items-center justify-between">
 
-        {/* Brand mark — Caveat Brush BURNT TOAST */}
+        {/* Brand mark — official Burnt Toast logo */}
         <Link href="/" className="flex items-center" style={{ textDecoration: "none" }}>
-          <span style={{
-            fontFamily: "var(--font-brand)",
-            color: "var(--ink)",
-            fontSize: 24, lineHeight: 0.9,
-            transform: "rotate(-3deg)",
-            display: "inline-block",
-          }}>
-            BURNT<br/>TOAST
-          </span>
+          <Image
+            src="https://burnt-toast.com/cdn/shop/files/Logo-8_1.png"
+            alt="Burnt Toast"
+            width={110}
+            height={36}
+            className="h-8 sm:h-9 w-auto object-contain"
+            style={{ width: "auto" }}
+            priority
+            unoptimized
+          />
         </Link>
 
         {/* Center title (mobile-hidden) */}
