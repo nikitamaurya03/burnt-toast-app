@@ -1,9 +1,55 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { ArrowRight } from "lucide-react";
 
+/* ── Curated Burnt Toast look-sets ─────────────────────────────────
+   Each visit to the landing page picks one at random, so the hero
+   collage keeps feeling fresh and reflective of the brand's editorial
+   range — downtown · clean girl · soft grunge · elevated basics · Y2K.
+   ─────────────────────────────────────────────────────────────── */
+const BT_CDN = "https://burnt-toast.com/cdn/shop/files";
+
+const LOOK_SETS = [
+  {
+    caption:   "DOWNTOWN",
+    subcaption:"MINIMAL · COOL · ELEVATED",
+    tags:      ["minimal", "downtown", "clean girl", "soft grunge", "elevated basics"],
+    main:      `${BT_CDN}/Section_Container_2.png`,
+    accentL:   `${BT_CDN}/Frame_1359318957_3.png`,
+    accentR:   `${BT_CDN}/Frame_1359318957_4.png`,
+  },
+  {
+    caption:   "CLEAN GIRL",
+    subcaption:"SOFT · NEUTRAL · LIVED-IN",
+    tags:      ["clean girl", "neutrals", "linen days", "soft glam", "quiet luxury"],
+    main:      `${BT_CDN}/Frame_1359318957_3.png`,
+    accentL:   `${BT_CDN}/Section_Container_2.png`,
+    accentR:   `${BT_CDN}/Frame_1359318957_4.png`,
+  },
+  {
+    caption:   "Y2K REVIVAL",
+    subcaption:"BOLD · RETRO · STATEMENT",
+    tags:      ["y2k", "retro", "statement", "playful", "main character"],
+    main:      `${BT_CDN}/Frame_1359318957_4.png`,
+    accentL:   `${BT_CDN}/Frame_1359318957_3.png`,
+    accentR:   `${BT_CDN}/Section_Container_2.png`,
+  },
+  {
+    caption:   "SOFT GRUNGE",
+    subcaption:"MOODY · TEXTURED · UNAPOLOGETIC",
+    tags:      ["soft grunge", "moody", "leather", "knits", "downtown after-dark"],
+    main:      `${BT_CDN}/Section_Container_2.png`,
+    accentL:   `${BT_CDN}/Frame_1359318957_4.png`,
+    accentR:   `${BT_CDN}/Frame_1359318957_3.png`,
+  },
+];
+
 export default function Hero() {
+  /* Pick a random look on every page load — useMemo with [] = once per mount */
+  const look = useMemo(() => LOOK_SETS[Math.floor(Math.random() * LOOK_SETS.length)], []);
+
   return (
     <section
       className="relative min-h-screen flex items-center overflow-hidden pt-20 pb-12 px-4 sm:px-8"
@@ -87,7 +133,7 @@ export default function Hero() {
         {/* RIGHT — polaroid collage */}
         <div className="relative animate-fade-in" style={{ minHeight: 480, paddingRight: 20 }}>
 
-          {/* Main polaroid (model) */}
+          {/* Main polaroid (Burnt Toast editorial shot — rotates per visit) */}
           <div className="polaroid" style={{
             position: "absolute",
             width: "60%", aspectRatio: "3/4",
@@ -97,23 +143,24 @@ export default function Hero() {
           }}>
             <div style={{
               width: "100%", height: "100%",
-              backgroundImage: "url('https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=800&q=80')",
+              backgroundImage: `url('${look.main}')`,
               backgroundSize: "cover", backgroundPosition: "center",
+              backgroundColor: "#D6CFC0",
               position: "relative",
             }}>
               <div style={{
                 position: "absolute", bottom: 0, left: 0, right: 0,
                 padding: "12px 14px",
-                background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)",
+                background: "linear-gradient(to top, rgba(0,0,0,0.55), transparent)",
                 color: "#fff", fontFamily: "var(--font-mono)",
               }}>
-                <div style={{ fontSize: 14, letterSpacing: 3, fontWeight: 500 }}>DOWNTOWN</div>
-                <div style={{ fontSize: 8, opacity: 0.85, marginTop: 3, letterSpacing: 2 }}>MINIMAL · COOL · ELEVATED</div>
+                <div style={{ fontSize: 14, letterSpacing: 3, fontWeight: 500 }}>{look.caption}</div>
+                <div style={{ fontSize: 8, opacity: 0.85, marginTop: 3, letterSpacing: 2 }}>{look.subcaption}</div>
               </div>
             </div>
           </div>
 
-          {/* Bag polaroid */}
+          {/* Left accent polaroid */}
           <div className="polaroid" style={{
             position: "absolute",
             width: "26%", aspectRatio: "3/4",
@@ -123,8 +170,9 @@ export default function Hero() {
           }}>
             <div style={{
               width: "100%", height: "100%",
-              backgroundImage: "url('https://images.unsplash.com/photo-1591561954557-26941169b49e?w=400&q=80')",
+              backgroundImage: `url('${look.accentL}')`,
               backgroundSize: "cover", backgroundPosition: "center",
+              backgroundColor: "#E5DFD0",
             }} />
           </div>
 
@@ -138,15 +186,13 @@ export default function Hero() {
             background: "#FFFEF5",
           }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink)", lineHeight: 2.1 }}>
-              minimal<br />
-              downtown<br />
-              clean girl<br />
-              soft grunge<br />
-              elevated basics
+              {look.tags.map((t, i) => (
+                <span key={i}>{t}<br /></span>
+              ))}
             </div>
           </div>
 
-          {/* Shoes polaroid */}
+          {/* Right accent polaroid */}
           <div className="polaroid" style={{
             position: "absolute",
             width: "28%", aspectRatio: "1/1",
@@ -156,8 +202,9 @@ export default function Hero() {
           }}>
             <div style={{
               width: "100%", height: "100%",
-              backgroundImage: "url('https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80')",
+              backgroundImage: `url('${look.accentR}')`,
               backgroundSize: "cover", backgroundPosition: "center",
+              backgroundColor: "#E5DFD0",
             }} />
           </div>
 

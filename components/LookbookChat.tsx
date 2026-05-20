@@ -686,8 +686,8 @@ function OutfitBlock({
           </div>
         )}
 
-        {/* ── Style notes panel — why this works ── */}
-        {style_notes && <StyleNotesPanel notes={style_notes} />}
+        {/* Style notes panel intentionally hidden from chat UI
+            (data still available in `style_notes` for internal logic) */}
 
         {/* ── Look-level size picker panel ── */}
         {showLookSizer && (
@@ -2000,7 +2000,7 @@ export default function LookbookChat() {
               padding: "14px 18px", display: "flex", gap: 8, alignItems: "center",
             }}>
               <span style={{ color: MUTED, fontSize: 11, marginRight: 4, fontFamily: FONT_MONO, letterSpacing: 2 }}>
-                TOASTIE IS THINKING...
+                TOASTIE IS COOKING SOMETHING...
               </span>
               {[0, 1, 2].map(n => (
                 <div key={n} style={{
