@@ -97,19 +97,31 @@ export default function CategoryShowcase() {
                 {/* Overlay gradient */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 
-                {/* Bottom text */}
+                {/* Bottom text — minimal editorial caption */}
                 <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-lg">{emoji}</span>
+                  <div className="flex items-center justify-between mb-2">
                     <span
-                      className="text-[9px] font-bold tracking-widest uppercase px-2 py-1 rounded-full"
-                      style={{ background: accent + "33", color: "#fff" }}
+                      className="text-[9px] font-medium tracking-[3px] uppercase text-white/85"
+                      style={{ fontFamily: "var(--font-mono)" }}
                     >
                       {count}
                     </span>
+                    <span
+                      className="text-[9px] tracking-[2px] uppercase text-white/70"
+                      style={{ fontFamily: "var(--font-mono)" }}
+                    >
+                      0{["tops","bottoms","dresses","footwear"].indexOf(title.toLowerCase()) + 1} / 04
+                    </span>
                   </div>
-                  <h3 className="text-white font-bold text-lg leading-tight">{title}</h3>
-                  <p className="text-white/70 text-xs mt-0.5 line-clamp-1">{description}</p>
+                  <h3
+                    className="text-white text-2xl leading-tight"
+                    style={{ fontFamily: "var(--font-display)", fontWeight: 400, letterSpacing: -0.5 }}
+                  >
+                    {title}
+                  </h3>
+                  <p className="text-white/70 text-xs mt-1 line-clamp-1" style={{ fontFamily: "var(--font-body)" }}>
+                    {description}
+                  </p>
                 </div>
               </div>
 
