@@ -7,12 +7,56 @@ import {
   Heart, ShoppingBag, Check, Plus, Menu, X, Sparkles, User,
   GraduationCap, Briefcase, Plane, PartyPopper, Coffee, Music,
   Minus, Building2, Flower2, Cloud, Star, Sun, Moon, Flame,
+  Camera, ImageIcon, XCircle,
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { products as allProducts } from "@/data/products";
 import { catalogueProducts } from "@/data/catalogue";
 import { Product } from "@/types";
+import { needsSizeSelection, resolveDefaultSize } from "@/utils/productSizing";
+
+/* ──────────────────────────────────────────────────────────────
+   BROKEN-IMAGE GUARD
+   When a product image fails to load (404, CORS, etc.) we add its
+   SKU to a module-level Set. Cards check this set on every render
+   and bail out (return null) so broken products never display.
+   Renderers also pre-filter their data using this set.
+   ────────────────────────────────────────────────────────────── */
+const brokenSkus = new Set<string>();
+const brokenSkusListeners = new Set<() => void>();
+
+function markSkuBroken(sku?: string | null) {
+  if (!sku || brokenSkus.has(sku)) return;
+  brokenSkus.add(sku);
+  // notify all subscribers so dependent renderers re-evaluate
+  brokenSkusListeners.forEach(fn => fn());
+}
+
+function useBrokenSkus(): Set<string> {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const listener = () => force(x => x + 1);
+    brokenSkusListeners.add(listener);
+    return () => { brokenSkusListeners.delete(listener); };
+  }, []);
+  return brokenSkus;
+}
+
+/** Returns true when the URL looks like a usable HTTP(S) image URL. */
+function hasValidImageUrl(url?: string | null): boolean {
+  if (!url) return false;
+  const trimmed = url.trim();
+  if (trimmed.length < 8) return false;
+  return trimmed.startsWith("http://") || trimmed.startsWith("https://");
+}
+
+/** True when this product/item should be hidden from the chat. */
+function isHiddenProduct(sku?: string, imgUrl?: string | null): boolean {
+  if (sku && brokenSkus.has(sku)) return true;
+  if (!hasValidImageUrl(imgUrl)) return true;
+  return false;
+}
 
 /* ── Palette — editorial cream theme ─────────────────────────── */
 const BG     = "#F0EBE0";   // cream paper background
@@ -39,7 +83,7 @@ const SECTION_META: Record<string, { label: string; color: string }> = {
   footwear:   { label: "FOOTWEAR",   color: INK },
   bag:        { label: "BAG",        color: INK },
   sunglasses: { label: "SUNGLASSES", color: INK },
-  necklace:   { label: "NECKLACE",   color: INK },
+  necklace:   { label: "JEWELLERY",  color: INK },
   hat:        { label: "HAT",        color: INK },
   watch:      { label: "WATCH",      color: INK },
 };
@@ -216,6 +260,10 @@ interface OutfitData {
   budget_note: string;
   next_question?: string;
   style_notes?: StyleNotes;
+  /** Optional server-supplied follow-up chips. When present, overrides
+   *  the default FOLLOWUP_CHIPS. Used by the purchase-intent fast path
+   *  to surface cart-state-aware suggestions. */
+  quick_replies?: string[];
 }
 
 interface LookEntry {
@@ -234,6 +282,8 @@ interface MultiData {
   message: string;
   looks: LookEntry[];
   next_question?: string;
+  /** Optional server-supplied follow-up chips. See OutfitData.quick_replies. */
+  quick_replies?: string[];
 }
 
 interface ProductsApiItem {
@@ -268,7 +318,32 @@ interface ReplaceOptionsData {
   next_question?: string;
 }
 
-type ParsedResponse = ChatData | OutfitData | MultiData | ProductsData | ReplaceOptionsData;
+interface ImageAnalysisInfo {
+  category: string;
+  color: string;
+  color_family?: string;
+  pattern: string;
+  style_type: string;
+  material: string;
+  fit: string;
+  gender: string;
+  season: string;
+  aesthetic: string;
+  description: string;
+}
+
+interface ImageLooksData {
+  type: "image_looks";
+  message: string;
+  analysis: ImageAnalysisInfo;
+  looks: LookEntry[];
+  needs_gender?: boolean;
+  anchor_info?: { role: string; type: string; excluded_roles: string[] };
+  next_question?: string;
+  quick_replies?: string[];
+}
+
+type ParsedResponse = ChatData | OutfitData | MultiData | ProductsData | ReplaceOptionsData | ImageLooksData;
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -278,16 +353,30 @@ interface ChatMessage {
 
 /* ── Helper: filter catalogue by chat category string ─────────── */
 function chatCategoryFilter(cat: string, gender: string) {
+  const lower = cat.toLowerCase();
   return catalogueProducts.filter(p => {
     const pc = p.category.toLowerCase();
+    const tags = (p.tags ?? []).map(t => t.toLowerCase());
     const catMatch = (() => {
-      switch (cat.toLowerCase()) {
-        case "tops":        return pc === "t-shirts" || pc === "tops";
-        case "bottoms":     return pc === "bottoms" || pc === "skirts" || pc === "denims";
-        case "dresses":     return pc === "dresses";
-        case "footwear":    return pc === "footwear";
-        case "accessories": return pc === "accessories";
-        default:            return true;
+      switch (lower) {
+        case "tops": case "top":            return pc === "t-shirts" || pc === "tops";
+        case "bottoms": case "bottom":      return pc === "bottoms" || pc === "skirts" || pc === "denims";
+        case "dresses": case "dress":       return pc === "dresses";
+        case "footwear": case "shoes":      return pc === "footwear";
+        case "accessories": case "accessory":
+          return pc === "accessories";
+        // Fine-grained sub-categories — match Accessories + relevant tag
+        case "bags": case "bag": case "handbag": case "handbags": case "clutch": case "purse":
+          return pc === "accessories" && tags.some(t => t.includes("bag") || t.includes("clutch") || t.includes("purse"));
+        case "necklaces": case "necklace": case "jewelry": case "jewellery": case "earrings": case "bracelet": case "bracelets":
+          return pc === "accessories" && tags.some(t => t.includes("necklace") || t.includes("earring") || t.includes("bracelet") || t.includes("jewel"));
+        case "sunglasses": case "eyewear":
+          return pc === "accessories" && tags.some(t => t.includes("sunglass") || t.includes("eyewear"));
+        case "watches": case "watch":
+          return pc === "accessories" && tags.some(t => t.includes("watch"));
+        case "hats": case "hat": case "cap":
+          return pc === "accessories" && tags.some(t => t.includes("hat") || t.includes("cap"));
+        default:                            return true;
       }
     })();
     const genderMatch = gender === "all" || gender === "" || p.gender === gender || p.gender === "unisex";
@@ -317,23 +406,36 @@ function buildProduct(item: OutfitItem, section: string): Product {
 }
 
 /* ── Compact card — renders ALL outfit sections in one unified grid ── */
-function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
+function CompactCard({ section, item, onRemove }: {
+  section: string;
+  item: OutfitItem;
+  /** When provided, the card shows a ✕ button. Clicking calls this. */
+  onRemove?: (section: string) => void;
+}) {
   const meta = SECTION_META[section] ?? { label: section.toUpperCase(), color: ACCENT };
   const [imgError,    setImgError]    = useState(false);
   const [cartAdded,   setCartAdded]   = useState(false);
   const [showSizes,   setShowSizes]   = useState(false);
   const [pickedSize,  setPickedSize]  = useState<string | null>(null);
+  const [removing,    setRemoving]    = useState(false);
+  const [removeHover, setRemoveHover] = useState(false);
   const { addItem: addToCart, isInCart } = useCart();
   const { toggleItem, isWishlisted } = useWishlist();
+  // Subscribe to broken-SKU updates so a card disappears if its image
+  // fails AFTER first render somewhere else (e.g. shown again later).
+  useBrokenSkus();
 
   if (!item?.name) return null;
+  // Skip products that have no valid image URL or already errored.
+  if (isHiddenProduct(item.sku, item.img)) return null;
 
   const product   = buildProduct(item, section);
   const inCart    = isInCart(item.sku);
   const wishlisted = isWishlisted(item.sku);
 
-  // Items whose first size is NOT "one size" need user selection
-  const needsSize = product.sizes?.[0] !== "one size";
+  // Only sized categories (tops, bottoms, dresses, footwear) need size selection.
+  // Bags, jewellery, sunglasses, watches, hats, charms add directly with One-Size.
+  const needsSize = needsSizeSelection(product.category, product.sizes);
 
   function addWithSize(size: string) {
     addToCart(product, size);
@@ -349,13 +451,22 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
     if (needsSize) {
       setShowSizes(prev => !prev);   // toggle size picker
     } else {
-      addWithSize(product.sizes?.[0] ?? "one size");
+      addWithSize(resolveDefaultSize(product.sizes));
     }
   }
 
   function handleWish(e: React.MouseEvent) {
     e.stopPropagation();
     toggleItem(product);
+  }
+
+  /** Remove this slot from the parent's outfit. Quick fade-out, no confirm dialog. */
+  function handleRemoveClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!onRemove || removing) return;
+    setRemoving(true);
+    // 220ms fade-out matches the CSS transition below
+    setTimeout(() => onRemove(section), 220);
   }
 
   /* primary color for the polaroid footer caption */
@@ -371,13 +482,20 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
         display: "flex", flexDirection: "column",
         cursor: "pointer",
         boxShadow: showSizes ? `0 0 0 2px rgba(26,26,26,0.10)` : "0 1px 3px rgba(0,0,0,0.04)",
-        transition: "transform 0.15s, box-shadow 0.15s, border-color 0.15s",
+        // Animate opacity + scale when the X button is pressed
+        opacity:  removing ? 0 : 1,
+        transform: removing ? "scale(0.94)" : undefined,
+        pointerEvents: removing ? "none" : undefined,
+        transition: "opacity 220ms ease, transform 220ms ease, box-shadow 0.15s, border-color 0.15s",
       }}
       onClick={() => !showSizes && item.url && window.open(item.url, "_blank", "noopener,noreferrer")}
-      onMouseEnter={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 18px rgba(0,0,0,0.08)"; e.currentTarget.style.borderColor = TEXT; }}}
-      onMouseLeave={e => { if (!showSizes) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; e.currentTarget.style.borderColor = BORDER; }}}
+      onMouseEnter={e => { if (!showSizes && !removing) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 18px rgba(0,0,0,0.08)"; e.currentTarget.style.borderColor = TEXT; }}}
+      onMouseLeave={e => { if (!showSizes && !removing) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; e.currentTarget.style.borderColor = BORDER; }}}
     >
-      {/* (#4) Category caption above the image — magazine-style rule line */}
+      {/* (#4) Category caption above the image — magazine-style rule line
+              The ✕ remove button sits flush right of this line when onRemove
+              is provided, so the action visually belongs to the slot label
+              ("remove this TOP") rather than to the image. */}
       <div style={{
         display: "flex", alignItems: "center", gap: 6,
         padding: "8px 10px 4px",
@@ -388,6 +506,30 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
           color: TEXT, whiteSpace: "nowrap",
         }}>— {meta.label}</span>
         <span style={{ flex: 1, height: 1, background: BORDER }} />
+        {onRemove && (
+          <button
+            onClick={handleRemoveClick}
+            onMouseEnter={() => setRemoveHover(true)}
+            onMouseLeave={() => setRemoveHover(false)}
+            aria-label={`Remove ${meta.label} from look`}
+            title="Remove from look"
+            style={{
+              width: 22, height: 22, borderRadius: "50%",
+              background: removeHover ? "#ef4444" : "transparent",
+              color: removeHover ? "#fff" : MUTED,
+              border: `1px solid ${removeHover ? "#ef4444" : BORDER}`,
+              cursor: "pointer",
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+              marginLeft: 2,
+              padding: 0,
+              transition: "background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s",
+              transform: removeHover ? "scale(1.06)" : "scale(1)",
+            }}
+          >
+            <X size={11} strokeWidth={2.5} />
+          </button>
+        )}
       </div>
 
       {/* Square image — uniform 1:1 ratio, soft cream stage so product pops */}
@@ -405,7 +547,7 @@ function CompactCard({ section, item }: { section: string; item: OutfitItem }) {
               objectFit: "cover", objectPosition: "top center",
               transition: "transform 350ms cubic-bezier(0.16,1,0.3,1)",
             }}
-            onError={() => setImgError(true)}
+            onError={() => { setImgError(true); markSkuBroken(item.sku); }}
           />
         ) : (
           <span style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 28 }}>
@@ -611,7 +753,7 @@ function StyleNotesPanel({ notes }: { notes: StyleNotes }) {
 
 /* ── Single outfit block (reused in both outfit + multi) ─────────── */
 function OutfitBlock({
-  outfit, occasion, vibe, total, budget_note, label, style_notes, lookNumber,
+  outfit, occasion, vibe, total, budget_note, label, style_notes, lookNumber, onRemoveSlot,
 }: {
   outfit: OutfitPair;
   occasion: string;
@@ -621,19 +763,35 @@ function OutfitBlock({
   label?: string;
   style_notes?: StyleNotes;
   lookNumber?: number;
+  /** When provided, each card shows a ✕ button that calls this with the slot role. */
+  onRemoveSlot?: (role: string) => void;
 }) {
   // mute unused-var TS for style_notes (kept in API contract, hidden from UI)
   void style_notes;
-  // All available items in display order — every slot is its own key
-  // Order: dress first if present (replaces top+bottom), else top → bottom → rest
-  const allKeys = (["dress", "top", "bottom", "footwear", "bag", "sunglasses", "necklace", "hat", "watch"] as const).filter(k => outfit?.[k]?.name);
+  // Subscribe to broken-SKU updates so this block re-renders (and recomputes
+  // visible keys + total) when an image fails to load.
+  useBrokenSkus();
+  // All available items in display order — every slot is its own key.
+  // Order: dress first if present (replaces top+bottom), else top → bottom → rest.
+  // Filter out slots whose product has no usable image / already-broken SKU.
+  const allKeys = (["dress", "top", "bottom", "footwear", "bag", "sunglasses", "necklace", "hat", "watch"] as const)
+    .filter(k => {
+      const it = outfit?.[k];
+      if (!it?.name) return false;
+      if (isHiddenProduct(it.sku, it.img)) return false;
+      return true;
+    });
 
-  // Items that need size selection (not "one size")
+  // Recompute visible total from only the items we'll actually display.
+  const visibleTotal = allKeys.reduce((sum, k) => sum + (outfit[k]?.price ?? 0), 0);
+
+  // Items that need size selection — only sized categories (tops, bottoms,
+  // dresses, footwear). Bags / jewellery / sunglasses skip the size step.
   const sizableKeys = allKeys.filter(k => {
     const it = outfit[k];
     if (!it) return false;
     const prod = buildProduct(it, k as string);
-    return prod.sizes?.[0] !== "one size";
+    return needsSizeSelection(prod.category, prod.sizes);
   });
 
   const { addItem: addToCart } = useCart();
@@ -649,8 +807,10 @@ function OutfitBlock({
       const it = outfit[k];
       if (!it) return;
       const prod = buildProduct(it, k as string);
-      const needsSize = prod.sizes?.[0] !== "one size";
-      const size = needsSize ? (lookSizes[k] ?? prod.sizes?.[0] ?? "M") : (prod.sizes?.[0] ?? "one size");
+      const needsSize = needsSizeSelection(prod.category, prod.sizes);
+      const size = needsSize
+        ? (lookSizes[k] ?? prod.sizes?.[0] ?? "M")
+        : resolveDefaultSize(prod.sizes);
       addToCart(prod, size);
     });
     setShopAdded(true);
@@ -719,7 +879,14 @@ function OutfitBlock({
               minWidth: allKeys.length * 128,
               alignItems: "start",
             }}>
-              {allKeys.map(k => <CompactCard key={k} section={k} item={outfit[k]!} />)}
+              {allKeys.map(k => (
+                <CompactCard
+                  key={k}
+                  section={k}
+                  item={outfit[k]!}
+                  onRemove={onRemoveSlot ? () => onRemoveSlot(k) : undefined}
+                />
+              ))}
             </div>
           </div>
         ) : (
@@ -824,7 +991,7 @@ function OutfitBlock({
             <div>
               <div style={{ color: MUTED, fontSize: 9, fontFamily: "'JetBrains Mono','Courier New',monospace", letterSpacing: 2.5, fontWeight: 600 }}>TOTAL</div>
               <div style={{ color: TEXT, fontSize: 24, fontWeight: 800, fontFamily: "'JetBrains Mono','Courier New',monospace", marginTop: 2 }}>
-                ₹{(total || 0).toLocaleString("en-IN")}
+                ₹{(visibleTotal || total || 0).toLocaleString("en-IN")}
               </div>
               <div style={{ color: MUTED, fontSize: 11, marginTop: 2, fontStyle: "italic" }}>{budget_note}</div>
             </div>
@@ -900,10 +1067,14 @@ const FOLLOWUP_CHIPS = [
   "More streetwear",
 ];
 
-function FollowUpChips({ onQuickReply }: { onQuickReply: (t: string) => void }) {
+function FollowUpChips({ onQuickReply, chips }: { onQuickReply: (t: string) => void; chips?: string[] }) {
+  // Use server-supplied chips when provided (e.g. cart-state-aware suggestions
+  // from the purchase-intent fast path); otherwise fall back to the default
+  // styling-only chips shared across all outfit responses.
+  const items = chips && chips.length > 0 ? chips : FOLLOWUP_CHIPS;
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-      {FOLLOWUP_CHIPS.map((chip, i) => (
+      {items.map((chip, i) => (
         <button
           key={i}
           onClick={() => onQuickReply(chip)}
@@ -922,7 +1093,142 @@ function FollowUpChips({ onQuickReply }: { onQuickReply: (t: string) => void }) 
   );
 }
 
-function OutfitRenderer({ data, onQuickReply }: { data: OutfitData; onQuickReply: (t: string) => void }) {
+/* ── Analysis badges — show what AI detected from the image ─────── */
+function AnalysisBadges({ analysis }: { analysis: ImageAnalysisInfo }) {
+  const badges = [
+    { label: analysis.category, icon: "📦" },
+    { label: analysis.color, icon: "🎨" },
+    { label: analysis.pattern, icon: "🔲" },
+    { label: analysis.style_type, icon: "✨" },
+    { label: analysis.material, icon: "🧵" },
+    { label: analysis.fit, icon: "📐" },
+    { label: analysis.season, icon: "🌤️" },
+  ].filter(b => b.label && b.label !== "unknown");
+
+  return (
+    <div style={{
+      display: "flex", flexWrap: "wrap", gap: 5, padding: "10px 0",
+    }}>
+      {badges.map((b, i) => (
+        <span key={i} style={{
+          background: "#FFFFFF", border: `1px solid ${BORDER}`,
+          borderRadius: 20, padding: "4px 10px",
+          fontSize: 10, color: TEXT, fontWeight: 600,
+          fontFamily: "'JetBrains Mono','Courier New',monospace",
+          letterSpacing: 0.8,
+          display: "flex", alignItems: "center", gap: 4,
+        }}>
+          <span style={{ fontSize: 11 }}>{b.icon}</span>
+          {b.label.toUpperCase()}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ── Image Looks renderer — shows AI analysis + multiple styled looks ── */
+function ImageLooksRenderer({ data, onQuickReply, onRemoveSlot }: {
+  data: ImageLooksData;
+  onQuickReply: (t: string) => void;
+  onRemoveSlot?: (lookIndex: number, role: string) => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* Stylist message */}
+      <div style={{
+        background: "linear-gradient(135deg, #fff7ed 0%, #fef3f2 100%)",
+        border: `1px solid ${BORDER}`,
+        borderRadius: 14, padding: "14px 18px",
+        color: TEXT, fontSize: 14, lineHeight: 1.75,
+        boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <Camera size={16} color={TEXT} />
+          <span style={{
+            fontFamily: "'JetBrains Mono','Courier New',monospace",
+            fontSize: 9, fontWeight: 900, letterSpacing: 2.5, color: MUTED,
+          }}>IMAGE ANALYSIS</span>
+        </div>
+        {data.message}
+      </div>
+
+      {/* Gender selection needed */}
+      {data.needs_gender && data.quick_replies && (
+        <div style={{
+          display: "flex", flexDirection: "column", gap: 10,
+          background: "#fffbeb", border: `1px solid #f59e0b`,
+          borderRadius: 12, padding: 16,
+        }}>
+          <span style={{ fontSize: 13, color: TEXT, fontWeight: 500 }}>
+            {data.next_question || "Are we styling this for men or women?"}
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            {data.quick_replies.map((label) => (
+              <button
+                key={label}
+                onClick={() => onQuickReply(label)}
+                style={{
+                  padding: "8px 18px", borderRadius: 20, border: `1px solid ${BORDER}`,
+                  background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600,
+                  color: TEXT, transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#fef3c7"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section divider + outfit looks (only when we have looks) */}
+      {data.looks && data.looks.length > 0 && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+            <span style={{ color: MUTED, fontSize: 9, fontWeight: 900, letterSpacing: 3, fontFamily: "'Courier New',monospace" }}>
+              COMPLETE THE LOOK
+            </span>
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+          </div>
+
+          {data.looks.map((look, i) => (
+            <OutfitBlock
+              key={i}
+              outfit={look.outfit}
+              occasion={look.occasion}
+              vibe={look.vibe}
+              total={look.total}
+              budget_note={look.budget_note}
+              label={look.label}
+              style_notes={look.style_notes}
+              lookNumber={look.look_number}
+              onRemoveSlot={onRemoveSlot ? (role) => onRemoveSlot(i, role) : undefined}
+            />
+          ))}
+        </>
+      )}
+
+      {/* Follow-up question */}
+      {data.next_question && (
+        <div style={{
+          color: MUTED, fontSize: 12, fontStyle: "italic",
+          padding: "8px 14px", borderLeft: `3px solid ${BORDER}`, lineHeight: 1.6,
+        }}>{data.next_question}</div>
+      )}
+
+      <FollowUpChips onQuickReply={onQuickReply} />
+    </div>
+  );
+}
+
+function OutfitRenderer({ data, onQuickReply, onRemoveSlot }: {
+  data: OutfitData;
+  onQuickReply: (t: string) => void;
+  /** Called when the user clicks ✕ on a card. Receives the slot role. */
+  onRemoveSlot?: (role: string) => void;
+}) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{
@@ -948,6 +1254,7 @@ function OutfitRenderer({ data, onQuickReply }: { data: OutfitData; onQuickReply
         budget_note={data.budget_note}
         style_notes={data.style_notes}
         lookNumber={1}
+        onRemoveSlot={onRemoveSlot}
       />
 
       {data.next_question && (
@@ -957,12 +1264,17 @@ function OutfitRenderer({ data, onQuickReply }: { data: OutfitData; onQuickReply
         }}>{data.next_question}</div>
       )}
 
-      <FollowUpChips onQuickReply={onQuickReply} />
+      <FollowUpChips onQuickReply={onQuickReply} chips={data.quick_replies} />
     </div>
   );
 }
 
-function MultiRenderer({ data, onQuickReply }: { data: MultiData; onQuickReply: (t: string) => void }) {
+function MultiRenderer({ data, onQuickReply, onRemoveSlot }: {
+  data: MultiData;
+  onQuickReply: (t: string) => void;
+  /** Called when the user clicks ✕ on a card. Receives the look index + slot role. */
+  onRemoveSlot?: (lookIndex: number, role: string) => void;
+}) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{
@@ -992,6 +1304,7 @@ function MultiRenderer({ data, onQuickReply }: { data: MultiData; onQuickReply: 
             label={look.label}
             style_notes={look.style_notes}
             lookNumber={look.look_number ?? i + 1}
+            onRemoveSlot={onRemoveSlot ? (role) => onRemoveSlot(i, role) : undefined}
           />
         ))}
       </div>
@@ -1003,7 +1316,7 @@ function MultiRenderer({ data, onQuickReply }: { data: MultiData; onQuickReply: 
         }}>{data.next_question}</div>
       )}
 
-      <FollowUpChips onQuickReply={onQuickReply} />
+      <FollowUpChips onQuickReply={onQuickReply} chips={data.quick_replies} />
     </div>
   );
 }
@@ -1014,11 +1327,18 @@ function MiniProductCard({ product }: { product: Product & { colors?: string[]; 
   const { toggleItem, isWishlisted } = useWishlist();
   const [added, setAdded] = useState(false);
   const [showSizes, setShowSizes] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  useBrokenSkus();
   const sizeList = product.sizes ?? [];
-  const needsSize = sizeList[0] !== "one size" && sizeList.length > 1;
+  // Only sized categories (tops, bottoms, dresses, footwear) get the picker.
+  // Accessories (bags, jewellery, sunglasses, watches, hats) add directly.
+  const needsSize = needsSizeSelection(product.category, sizeList) && sizeList.length > 1;
   const inCart = isInCart(product.id);
   const wished = isWishlisted(product.id);
   const productColors = product.colors;
+
+  // Skip products without a usable image URL or already-known-broken SKUs.
+  if (isHiddenProduct(product.id, product.image)) return null;
 
   function addWithSize(sz: string) {
     addItem(product, sz);
@@ -1030,7 +1350,7 @@ function MiniProductCard({ product }: { product: Product & { colors?: string[]; 
   function handleCart(e: React.MouseEvent) {
     e.stopPropagation();
     if (added || inCart) return;
-    if (needsSize) { setShowSizes(p => !p); } else { addWithSize(sizeList[0] ?? "one size"); }
+    if (needsSize) { setShowSizes(p => !p); } else { addWithSize(resolveDefaultSize(sizeList)); }
   }
 
   return (
@@ -1052,9 +1372,11 @@ function MiniProductCard({ product }: { product: Product & { colors?: string[]; 
     >
       {/* Image */}
       <div style={{ position: "relative", width: "100%", paddingBottom: "120%", background: CARD, overflow: "hidden" }}>
-        {product.image ? (
+        {product.image && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.image} alt={product.name} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+          <img src={product.image} alt={product.name}
+            onError={() => { setImgError(true); markSkuBroken(product.id); }}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
         ) : (
           <span style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 24 }}>👚</span>
         )}
@@ -1115,10 +1437,11 @@ function MiniProductCard({ product }: { product: Product & { colors?: string[]; 
 
 /* ── Products renderer — in-chat catalogue browsing ──────────── */
 function ProductsRenderer({ data, onQuickReply }: { data: ProductsData; onQuickReply: (t: string) => void }) {
+  useBrokenSkus();
   // Prefer API-provided products (engine output) — they include the burnt-toast.com URL.
   // Fallback to local catalogue filter if API didn't provide any.
   type ProductWithExtras = Product & { url?: string; colors?: string[] };
-  const results: ProductWithExtras[] = data.products && data.products.length > 0
+  const allResults: ProductWithExtras[] = data.products && data.products.length > 0
     ? data.products.map(p => ({
         id: p.sku,
         name: p.name,
@@ -1137,6 +1460,8 @@ function ProductsRenderer({ data, onQuickReply }: { data: ProductsData; onQuickR
       } as ProductWithExtras))
     : (chatCategoryFilter(data.category ?? "all", data.gender ?? "all").slice(0, 12)
         .map(p => ({ ...p, colors: p.color ?? [] } as ProductWithExtras)));
+  // Hide any product without a usable image URL or already-known-broken.
+  const results = allResults.filter(p => !isHiddenProduct(p.id, p.image));
 
   const catLabel = data.category === "all" ? "Collection" : data.category;
 
@@ -1192,8 +1517,11 @@ function ReplaceOptionsRenderer({
   onQuickReply: (t: string) => void;
   onSelectReplacement: (slot: string, sku: string, name: string) => void;
 }) {
+  useBrokenSkus();
   const slotMeta = SECTION_META[data.replace_slot] ?? { label: data.replace_slot.toUpperCase(), color: ACCENT };
   const lockedRoles = Object.keys(data.locked_outfit ?? {});
+  // Filter out options without a valid image or with a broken SKU.
+  const visibleOptions = data.options.filter(p => !isHiddenProduct(p.sku, p.img));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1235,7 +1563,7 @@ function ReplaceOptionsRenderer({
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ flex: 1, height: 1, background: BORDER }} />
         <span style={{ color: slotMeta.color, fontSize: 9, fontWeight: 900, letterSpacing: 3, fontFamily: "'Courier New',monospace", whiteSpace: "nowrap" }}>
-          {data.options.length} NEW {slotMeta.label} OPTIONS
+          {visibleOptions.length} NEW {slotMeta.label} OPTIONS
         </span>
         <div style={{ flex: 1, height: 1, background: BORDER }} />
       </div>
@@ -1243,7 +1571,7 @@ function ReplaceOptionsRenderer({
       {/* Option cards — horizontal scroll */}
       <div style={{ overflowX: "auto", paddingBottom: 6 }}>
         <div style={{ display: "flex", gap: 8, minWidth: "max-content" }}>
-          {data.options.map(p => (
+          {visibleOptions.map(p => (
             <ReplaceOptionCard
               key={p.sku}
               product={p}
@@ -1275,8 +1603,12 @@ function ReplaceOptionCard({
   onChoose: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
+  useBrokenSkus();
   const { toggleItem, isWishlisted } = useWishlist();
   const wished = isWishlisted(product.sku);
+
+  // Hide cards with no valid image or whose image already failed elsewhere.
+  if (isHiddenProduct(product.sku, product.img)) return null;
 
   function openOriginal(e: React.MouseEvent) {
     e.stopPropagation();
@@ -1300,7 +1632,7 @@ function ReplaceOptionCard({
         {product.img && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={product.img} alt={product.name}
-            onError={() => setImgError(true)}
+            onError={() => { setImgError(true); markSkuBroken(product.sku); }}
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
         ) : (
           <span style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", fontSize: 24 }}>👚</span>
@@ -1335,16 +1667,25 @@ function ReplaceOptionCard({
 }
 
 /* ── Smart dispatcher ────────────────────────────────────────────── */
-function ResponseRenderer({ data, onQuickReply, onSelectReplacement }: {
+function ResponseRenderer({
+  data, onQuickReply, onSelectReplacement, onRemoveSlot,
+}: {
   data: ParsedResponse;
   onQuickReply: (t: string) => void;
   onSelectReplacement: (slot: string, sku: string, name: string) => void;
+  /**
+   * Called when the user clicks ✕ on a card in this message.
+   * For single-look responses (OutfitRenderer) lookIndex is null.
+   * For multi-look responses (Multi / ImageLooks) lookIndex identifies the look.
+   */
+  onRemoveSlot?: (lookIndex: number | null, role: string) => void;
 }) {
   if (data.type === "chat") return <ChatBubble data={data} onQuickReply={onQuickReply} />;
-  if (data.type === "multi") return <MultiRenderer data={data} onQuickReply={onQuickReply} />;
+  if (data.type === "image_looks") return <ImageLooksRenderer data={data} onQuickReply={onQuickReply} onRemoveSlot={onRemoveSlot ? (i, r) => onRemoveSlot(i, r) : undefined} />;
+  if (data.type === "multi") return <MultiRenderer data={data} onQuickReply={onQuickReply} onRemoveSlot={onRemoveSlot ? (i, r) => onRemoveSlot(i, r) : undefined} />;
   if (data.type === "products") return <ProductsRenderer data={data as ProductsData} onQuickReply={onQuickReply} />;
   if (data.type === "replace_options") return <ReplaceOptionsRenderer data={data} onQuickReply={onQuickReply} onSelectReplacement={onSelectReplacement} />;
-  return <OutfitRenderer data={data as OutfitData} onQuickReply={onQuickReply} />;
+  return <OutfitRenderer data={data as OutfitData} onQuickReply={onQuickReply} onRemoveSlot={onRemoveSlot ? (r) => onRemoveSlot(null, r) : undefined} />;
 }
 
 /* ── Parse helper ────────────────────────────────────────────────── */
@@ -1380,6 +1721,20 @@ function parseRaw(raw: string): ParsedResponse | null {
 
 /* ── Main component ──────────────────────────────────────────────── */
 /* ── Session memory: outfit state + user profile across turns ── */
+interface ImageContext {
+  category: string;
+  color: string;
+  color_family?: string;
+  pattern: string;
+  style_type: string;
+  material: string;
+  fit: string;
+  gender: string;
+  season: string;
+  aesthetic: string;
+  description: string;
+}
+
 interface SessionState {
   currentOutfit: Record<string, { sku: string; name?: string; price?: number }>;
   userProfile: {
@@ -1391,6 +1746,17 @@ interface SessionState {
   };
   rejectedSkus: string[];
   likedSkus: string[];
+  /** Set when the user uploaded an anchor item — we build looks AROUND it. */
+  anchor?: {
+    type: string;
+    role: string;
+    excluded_roles: string[];
+    description?: string;
+  } | null;
+  /** Persistent image analysis — stays active until user uploads new image or starts new chat. */
+  imageContext?: ImageContext | null;
+  /** Tracks the mode: null = normal text chat, "image_styling" = anchor-based outfit completion. */
+  mode?: "image_styling" | null;
 }
 
 const EMPTY_SESSION: SessionState = {
@@ -1398,6 +1764,9 @@ const EMPTY_SESSION: SessionState = {
   userProfile: {},
   rejectedSkus: [],
   likedSkus: [],
+  anchor: null,
+  imageContext: null,
+  mode: null,
 };
 
 /** Pull the latest outfit and profile bits from a parsed assistant response */
@@ -1407,6 +1776,9 @@ function deriveSessionUpdate(parsed: ParsedResponse, prev: SessionState): Sessio
     userProfile: { ...prev.userProfile },
     rejectedSkus: [...prev.rejectedSkus],
     likedSkus: [...prev.likedSkus],
+    anchor: prev.anchor ?? null,         // PRESERVE anchor across chat turns
+    imageContext: prev.imageContext ?? null,  // PRESERVE image context across turns
+    mode: prev.mode ?? null,                 // PRESERVE mode across turns
   };
   // OUTFIT → store all slots as current
   if (parsed.type === "outfit") {
@@ -1465,10 +1837,16 @@ export default function LookbookChat() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeOccasion, setActiveOccasion] = useState<string | null>(null);
   const [activeVibe, setActiveVibe] = useState<string | null>(null);
-  const { totalItems: cartCount } = useCart();
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<{ base64: string; mime: string } | null>(null);
+  // Persist the most-recent uploaded image so we can re-call /api/image-style
+  // when the user picks a gender from the unisex disambiguation prompt.
+  const lastUploadedRef = useRef<{ base64: string; mime: string; preview: string } | null>(null);
+  const { totalItems: cartCount, items: cartItems } = useCart();
   const { totalItems: wishCount } = useWishlist();
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* Persist chat history to localStorage */
   useEffect(() => {
@@ -1501,12 +1879,223 @@ export default function LookbookChat() {
     setSession(EMPTY_SESSION);
     setActiveChatId(null);
     setSidebarOpen(false);
+    lastUploadedRef.current = null;
   }
   function loadChat(entry: ChatHistoryEntry) {
     setMessages(entry.messages);
     setSession(entry.session);
     setActiveChatId(entry.id);
     setSidebarOpen(false);
+  }
+
+  /* ── Image upload handling ── */
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Max 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Image too large — please use an image under 10MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setImagePreview(dataUrl);
+      // Extract base64 and mime
+      const [header, base64] = dataUrl.split(",");
+      const mime = header.match(/data:(.*?);/)?.[1] ?? "image/jpeg";
+      setImageFile({ base64, mime });
+    };
+    reader.readAsDataURL(file);
+    // Reset file input so same file can be re-selected
+    e.target.value = "";
+  }
+
+  function clearImage() {
+    setImagePreview(null);
+    setImageFile(null);
+  }
+
+  /**
+   * Helper: update session from an image_looks API response.
+   * Sets anchor, imageContext, mode, currentOutfit, and userProfile.
+   */
+  function applyImageLooksToSession(imageLooks: ImageLooksData, genderOverride?: string) {
+    setSession(prev => {
+      const firstLook = imageLooks.looks?.[0];
+      const newOutfit: SessionState["currentOutfit"] = {};
+      if (firstLook?.outfit) {
+        for (const role of Object.keys(firstLook.outfit) as Array<keyof OutfitPair>) {
+          const item = firstLook.outfit[role];
+          if (item?.sku) newOutfit[role as string] = { sku: item.sku, name: item.name, price: item.price };
+        }
+      }
+      const anchorInfo = imageLooks.anchor_info;
+      const nextAnchor = anchorInfo
+        ? { type: anchorInfo.type, role: anchorInfo.role, excluded_roles: anchorInfo.excluded_roles, description: imageLooks.analysis?.description }
+        : prev.anchor ?? null;
+
+      // Build persistent imageContext from the analysis
+      const analysis = imageLooks.analysis;
+      const nextImageContext: ImageContext | null = analysis
+        ? {
+            category:    analysis.category,
+            color:       analysis.color,
+            color_family: analysis.color_family,
+            pattern:     analysis.pattern,
+            style_type:  analysis.style_type,
+            material:    analysis.material,
+            fit:         analysis.fit,
+            gender:      analysis.gender,
+            season:      analysis.season,
+            aesthetic:   analysis.aesthetic,
+            description: analysis.description,
+          }
+        : prev.imageContext ?? null;
+
+      return {
+        ...prev,
+        currentOutfit: Object.keys(newOutfit).length ? newOutfit : prev.currentOutfit,
+        userProfile: {
+          ...prev.userProfile,
+          gender:   genderOverride ?? analysis?.gender ?? prev.userProfile.gender,
+          occasion: firstLook?.occasion ?? prev.userProfile.occasion,
+          vibe:     firstLook?.vibe ?? prev.userProfile.vibe,
+        },
+        anchor: nextAnchor,
+        imageContext: nextImageContext,
+        mode: "image_styling" as const,
+      };
+    });
+  }
+
+  async function sendImage() {
+    if (!imageFile || loading) return;
+    const preview = imagePreview;
+    // Capture any text the user typed alongside the image
+    const userText = input.trim();
+    setLoading(true);
+    if (userText) setInput("");
+
+    // Remember this upload so gender-quick-reply can re-call /api/image-style
+    if (preview) {
+      lastUploadedRef.current = { base64: imageFile.base64, mime: imageFile.mime, preview };
+    }
+
+    // Show user bubble — include their text if they wrote something
+    const bubbleContent = userText
+      ? `📸 [Uploaded a product image for styling]\n"${userText}"`
+      : "📸 [Uploaded a product image for styling]";
+    setMessages(prev => [...prev, { role: "user", content: bubbleContent }]);
+    clearImage();
+
+    try {
+      const res = await fetch("/api/image-style", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64: imageFile.base64,
+          imageMime: imageFile.mime,
+          session,
+          // Send user's text so the API can use it for intent (occasion, vibe, budget)
+          ...(userText ? { userMessage: userText } : {}),
+        }),
+      });
+      const data = await res.json();
+
+      let parsed: ParsedResponse | null = null;
+      if (data && typeof data.type === "string") {
+        parsed = data as ParsedResponse;
+      }
+      if (!parsed) {
+        const fallback: ChatData = { type: "chat", message: "Couldn't analyze that image — try a clearer photo!" };
+        setMessages(prev => [...prev, { role: "assistant", content: fallback.message, parsed: fallback }]);
+      } else {
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: data.message || "",
+          parsed,
+          imagePreview: preview ?? undefined,
+        } as ChatMessage]);
+        if (parsed.type === "image_looks") {
+          applyImageLooksToSession(parsed as ImageLooksData);
+        }
+      }
+    } catch {
+      const fallback: ChatData = { type: "chat", message: "Couldn't connect — try again!" };
+      setMessages(prev => [...prev, { role: "assistant", content: "", parsed: fallback }]);
+    }
+
+    setLoading(false);
+  }
+
+  /**
+   * Re-style the last uploaded image with an explicit gender override.
+   * Called when the user clicks the "Women" / "Men" quick-reply after
+   * the unisex disambiguation prompt.
+   */
+  async function restyleWithGender(gender: "female" | "male", userBubble: string) {
+    const last = lastUploadedRef.current;
+    if (!last || loading) return;
+    setLoading(true);
+
+    // Show the user's choice as a chat bubble
+    setMessages(prev => [...prev, { role: "user", content: userBubble }]);
+
+    try {
+      const res = await fetch("/api/image-style", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64: last.base64,
+          imageMime:   last.mime,
+          session,
+          genderOverride: gender,
+        }),
+      });
+      const data = await res.json();
+
+      let parsed: ParsedResponse | null = null;
+      if (data && typeof data.type === "string") {
+        parsed = data as ParsedResponse;
+      }
+      if (!parsed) {
+        setMessages(prev => [...prev, { role: "assistant", content: "Couldn't restyle — try again!", parsed: { type: "chat", message: "Couldn't restyle — try again!" } }]);
+      } else {
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: data.message || "",
+          parsed,
+          imagePreview: last.preview,
+        } as ChatMessage]);
+        if (parsed.type === "image_looks") {
+          applyImageLooksToSession(parsed as ImageLooksData, gender);
+        }
+      }
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "", parsed: { type: "chat", message: "Couldn't connect — try again!" } }]);
+    }
+
+    setLoading(false);
+  }
+
+  /**
+   * Routes a quick-reply click. If the last assistant message asked for
+   * gender disambiguation on an image upload, re-call /api/image-style
+   * with the gender override (preserving anchor context). Otherwise fall
+   * through to the regular chat send().
+   */
+  function handleQuickReply(text: string) {
+    const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
+    const askedGender =
+      lastAssistant?.parsed?.type === "image_looks" &&
+      (lastAssistant.parsed as ImageLooksData).needs_gender === true;
+
+    if (askedGender && lastUploadedRef.current) {
+      if (text.toLowerCase().startsWith("women")) return restyleWithGender("female", text);
+      if (text.toLowerCase().startsWith("men"))   return restyleWithGender("male",   text);
+    }
+    send(text);
   }
 
   useEffect(() => {
@@ -1522,10 +2111,92 @@ export default function LookbookChat() {
     });
   };
 
+  /**
+   * User clicked the ✕ button on a card. Removes that slot from the
+   * specific message's outfit (mutates messages[messageIdx].parsed.outfit
+   * or messages[messageIdx].parsed.looks[lookIdx].outfit). Also keeps
+   * session.currentOutfit in sync if this is the most recent outfit
+   * — so the engine and "shop the look" total stay consistent.
+   *
+   * Silent UI removal — no chat bubble, no engine call, no confirmation.
+   */
+  const handleRemoveSlot = (messageIdx: number, lookIdx: number | null, role: string) => {
+    setMessages(prev => {
+      if (messageIdx < 0 || messageIdx >= prev.length) return prev;
+      const msg = prev[messageIdx];
+      if (!msg?.parsed) return prev;
+
+      // Build a stripped parsed payload
+      let newParsed: ParsedResponse | null = null;
+
+      // Helper — strip a slot key from an outfit object and recompute total
+      const strip = (outfit: OutfitPair, total: number): { outfit: OutfitPair; total: number } => {
+        const removed = (outfit as unknown as Record<string, { price?: number } | undefined>)[role];
+        if (!removed) return { outfit, total }; // nothing to remove
+        const next = { ...(outfit as unknown as Record<string, unknown>) };
+        delete next[role];
+        const newTotal = Math.max(0, total - (removed.price ?? 0));
+        return { outfit: next as unknown as OutfitPair, total: newTotal };
+      };
+
+      if (msg.parsed.type === "outfit" && lookIdx === null) {
+        const next = { ...(msg.parsed as OutfitData) };
+        const stripped = strip(next.outfit, next.total ?? 0);
+        next.outfit = stripped.outfit;
+        next.total  = stripped.total;
+        newParsed = next as ParsedResponse;
+      } else if (msg.parsed.type === "multi" && lookIdx !== null) {
+        const multi = msg.parsed as MultiData;
+        const looks = multi.looks.map((look, i) => {
+          if (i !== lookIdx) return look;
+          const stripped = strip(look.outfit, look.total ?? 0);
+          return { ...look, outfit: stripped.outfit, total: stripped.total };
+        });
+        newParsed = { ...multi, looks } as ParsedResponse;
+      } else if (msg.parsed.type === "image_looks" && lookIdx !== null) {
+        const il = msg.parsed as ImageLooksData;
+        const looks = (il.looks ?? []).map((look, i) => {
+          if (i !== lookIdx) return look;
+          const stripped = strip(look.outfit, look.total ?? 0);
+          return { ...look, outfit: stripped.outfit, total: stripped.total };
+        });
+        newParsed = { ...il, looks } as ParsedResponse;
+      } else {
+        return prev; // Unknown shape — leave it alone
+      }
+
+      const nextMessages = [...prev];
+      nextMessages[messageIdx] = { ...msg, parsed: newParsed };
+      return nextMessages;
+    });
+
+    // Keep session.currentOutfit aligned when removing from the most recent
+    // outfit (single-look responses or first multi-look). The chat-route
+    // purchase-intent / replace fast paths read from session.currentOutfit,
+    // so it must reflect what's actually on screen.
+    setSession(prev => {
+      if (!prev.currentOutfit || !prev.currentOutfit[role]) return prev;
+      const next = { ...prev.currentOutfit };
+      delete next[role];
+      return { ...prev, currentOutfit: next };
+    });
+  };
+
   const send = async (text?: string, opts?: { action?: string; actionParams?: Record<string, unknown>; userBubble?: string }) => {
     const query = (text ?? input).trim();
     if (!query && !opts?.action) return;
     if (loading) return;
+
+    // ── ROUTING GUARD ────────────────────────────────────────────
+    // If the user has a STAGED image AND we haven't yet activated
+    // image_styling mode (no imageContext), the text is about that
+    // staged image — route to /api/image-style instead of /api/chat
+    // so Sonnet actually SEES the picture.
+    if (imageFile && !session.imageContext && !opts?.action) {
+      // sendImage() handles its own loading state, user-bubble, and input clearing
+      return sendImage();
+    }
+
     if (!opts?.action) setInput("");
 
     // Show a user-side bubble unless explicitly suppressed
@@ -1538,6 +2209,9 @@ export default function LookbookChat() {
 
     try {
       const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
+      // Pass the SKUs currently in cart so the backend's purchase-intent
+      // fast path knows which items are already added (vs. still need sizing).
+      const cartSkus = Array.from(new Set(cartItems.map(i => i.id)));
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1545,6 +2219,7 @@ export default function LookbookChat() {
           message: query || "(action)",
           history,
           session,
+          cartSkus,
           ...(opts?.action ? { action: opts.action, action_params: opts.actionParams } : {}),
         }),
       });
@@ -1561,8 +2236,8 @@ export default function LookbookChat() {
       if (!parsed) {
         const rawMsg = data.message || "";
         const safeMessage = rawMsg.trimStart().startsWith("{")
-          ? "Toastie's brain had a moment — try asking again! No cap it'll hit different next time 😅"
-          : (rawMsg || "Something went wrong — try again!");
+          ? "Let me try that again — what occasion or vibe are you styling for?"
+          : (rawMsg || "Connection hiccup — give that another try in a sec.");
         const fallback: ChatData = { type: "chat", message: safeMessage };
         setMessages(prev => [...prev, { role: "assistant", content: safeMessage, parsed: fallback }]);
       } else {
@@ -1579,13 +2254,13 @@ export default function LookbookChat() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, display: "flex", flexDirection: "column", fontFamily: FONT_BODY }}>
+    <div style={{ height: "100dvh", background: BG, display: "flex", flexDirection: "column", fontFamily: FONT_BODY, overflow: "hidden" }}>
 
       {/* ═══ HEADER ═══════════════════════════════════════════════ */}
       <header className="bt-chat-header" style={{
         background: BG, borderBottom: `1px solid ${BORDER}`,
         padding: "12px 20px", display: "flex", alignItems: "center",
-        justifyContent: "space-between", position: "sticky", top: 0, zIndex: 30,
+        justifyContent: "space-between", zIndex: 30, flexShrink: 0,
       }}>
         {/* Left — logo + sidebar toggle on mobile */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
@@ -1674,7 +2349,7 @@ export default function LookbookChat() {
       </header>
 
       {/* ═══ BODY — sidebar + chat panel ══════════════════════════ */}
-      <div className="bt-chat-body" style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
+      <div className="bt-chat-body" style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative", minHeight: 0 }}>
 
         {/* ─── SIDEBAR ───────────────────────────────────────────── */}
         <aside
@@ -1782,10 +2457,10 @@ export default function LookbookChat() {
         )}
 
         {/* ─── CHAT PANEL ────────────────────────────────────────── */}
-        <div className="bt-chat-panel" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div className="bt-chat-panel" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
 
       {/* ── BODY ─────────────────────────────────────────────────── */}
-      <div className="bt-chat-scroll" style={{ flex: 1, overflowY: "auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 20 }}>
+      <div className="bt-chat-scroll" style={{ flex: 1, overflowY: "auto", padding: "24px 16px", paddingBottom: 140, display: "flex", flexDirection: "column", gap: 20, minHeight: 0 }}>
 
         {/* ═══ WELCOME — compact hero + icon chip rows ═══════════════ */}
         {messages.length === 0 && !loading && (() => {
@@ -1998,7 +2673,12 @@ export default function LookbookChat() {
                   )}
                   {msg.role === "assistant" ? (
                     msg.parsed
-                      ? <ResponseRenderer data={msg.parsed} onQuickReply={(t) => send(t)} onSelectReplacement={handleSelectReplacement} />
+                      ? <ResponseRenderer
+                          data={msg.parsed}
+                          onQuickReply={handleQuickReply}
+                          onSelectReplacement={handleSelectReplacement}
+                          onRemoveSlot={(lookIdx, role) => handleRemoveSlot(i, lookIdx, role)}
+                        />
                       : (
                         <div style={{
                           background: CARD, border: `1px solid ${BORDER}`,
@@ -2062,12 +2742,118 @@ export default function LookbookChat() {
         <div ref={bottomRef} />
       </div>
 
-      {/* ═══ INPUT BAR ════════════════════════════════════════════ */}
+      {/* ═══ INPUT BAR — fixed at bottom, always visible ═════════ */}
       <div className="bt-input-bar" style={{
-        padding: "16px 20px 20px", background: BG,
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        width: "100%",
+        zIndex: 1000,
+        background: BG,
         borderTop: `1px solid ${BORDER}`,
+        padding: "16px 20px 20px",
       }}>
         <div className="bt-input-inner" style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 10 }}>
+
+          {/* Hidden file input for image upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            onChange={handleImageSelect}
+            style={{ display: "none" }}
+          />
+
+          {/* Anchor banner — visible whenever the user is styling around an uploaded item */}
+          {session.anchor && (
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              gap: 12, background: "#fef3c7", border: "1px solid #f59e0b",
+              borderRadius: 12, padding: "8px 12px",
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#92400e", lineHeight: 1.4 }}>
+                🔗 Styling around your <strong>{session.anchor.type.toLowerCase()}</strong> — recommendations exclude {session.anchor.excluded_roles.join(", ")}.
+              </span>
+              <button
+                onClick={() => {
+                  setSession(prev => ({ ...prev, anchor: null, imageContext: null, mode: null }));
+                  lastUploadedRef.current = null;
+                }}
+                style={{
+                  padding: "4px 10px", borderRadius: 14, border: "1px solid #f59e0b",
+                  background: "#fff", color: "#92400e", fontSize: 11, fontWeight: 700,
+                  cursor: "pointer", whiteSpace: "nowrap",
+                }}
+                title="Forget the uploaded item and start a fresh full outfit"
+              >
+                Clear & full outfit
+              </button>
+            </div>
+          )}
+
+          {/* Image preview — shown above the pill when an image is staged */}
+          {imagePreview && (
+            <div style={{
+              background: CARD, border: `1px solid ${BORDER}`,
+              borderRadius: 16, padding: 12,
+              display: "flex", alignItems: "flex-start", gap: 12,
+              animation: "fadeIn 0.25s ease-out",
+            }}>
+              <div style={{
+                width: 80, height: 80, borderRadius: 10, overflow: "hidden",
+                border: `1px solid ${BORDER}`, flexShrink: 0, position: "relative",
+              }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imagePreview}
+                  alt="Upload preview"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <ImageIcon size={14} color={TEXT} />
+                  <span style={{
+                    fontFamily: FONT_MONO, fontSize: 10, fontWeight: 700,
+                    letterSpacing: 1.5, color: TEXT,
+                  }}>PRODUCT IMAGE READY</span>
+                </div>
+                <span style={{ fontSize: 11, color: MUTED, lineHeight: 1.4 }}>
+                  Toastie will analyze this product and build complete outfit looks from our collection
+                </span>
+                <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+                  <button
+                    onClick={sendImage}
+                    disabled={loading}
+                    style={{
+                      background: TEXT, color: BG, border: "none",
+                      borderRadius: 8, padding: "7px 16px",
+                      fontSize: 11, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
+                      fontFamily: FONT_MONO, letterSpacing: 1,
+                      display: "flex", alignItems: "center", gap: 5,
+                      transition: "opacity 0.2s",
+                      opacity: loading ? 0.5 : 1,
+                    }}
+                  >
+                    <Sparkles size={12} /> STYLE THIS
+                  </button>
+                  <button
+                    onClick={clearImage}
+                    style={{
+                      background: "transparent", color: MUTED,
+                      border: `1px solid ${BORDER}`,
+                      borderRadius: 8, padding: "7px 12px",
+                      fontSize: 11, fontWeight: 600, cursor: "pointer",
+                      fontFamily: FONT_MONO,
+                      display: "flex", alignItems: "center", gap: 4,
+                    }}
+                  >
+                    <XCircle size={12} /> REMOVE
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Pill input */}
           <div className="bt-input-pill" style={{
@@ -2100,6 +2886,29 @@ export default function LookbookChat() {
                 LIVE STYLIST AI
               </span>
             </div>
+
+            {/* Image upload button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading}
+              aria-label="Upload product image"
+              title="Upload a product image for styling"
+              style={{
+                background: imagePreview ? TEXT : "transparent",
+                color: imagePreview ? BG : MUTED,
+                border: imagePreview ? "none" : `1px solid ${BORDER}`,
+                borderRadius: "50%",
+                width: 34, height: 34, minWidth: 34,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: loading ? "not-allowed" : "pointer",
+                transition: "all 0.2s",
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => { if (!imagePreview) { e.currentTarget.style.borderColor = TEXT; e.currentTarget.style.color = TEXT; }}}
+              onMouseLeave={e => { if (!imagePreview) { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = MUTED; }}}
+            >
+              <Camera size={15} />
+            </button>
 
             {/* Input */}
             <input
@@ -2166,6 +2975,23 @@ export default function LookbookChat() {
                   &ldquo;{prompt}&rdquo;
                 </button>
               ))}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: 999,
+                  padding: "6px 14px",
+                  color: MUTED, fontSize: 11,
+                  fontFamily: FONT_BODY,
+                  cursor: "pointer", transition: "all 0.2s",
+                  display: "flex", alignItems: "center", gap: 5,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = TEXT; e.currentTarget.style.color = TEXT; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = MUTED; }}
+              >
+                <Camera size={12} /> Upload a product image
+              </button>
             </div>
           )}
         </div>
