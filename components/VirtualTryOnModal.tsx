@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { X, Download, RefreshCw, Upload, Sparkles, AlertCircle } from "lucide-react";
+import {
+  X, Download, RefreshCw, Upload, Sparkles, AlertCircle,
+  Share2, Copy, Check, MessageCircle, Instagram, ChevronLeft, ChevronRight,
+} from "lucide-react";
 
 /* ── Palette mirrors LookbookChat editorial theme ───────────────── */
 const BG          = "#F1EBDD";
@@ -29,7 +32,7 @@ const BODY_TYPES = [
   { value: "prefer-not-to-say",   label: "Prefer not to say" },
 ];
 
-/* ── The outfit shape this modal accepts (matches LookbookChat) ─ */
+/* ── Public types ───────────────────────────────────────────────── */
 export interface TryOnOutfitItem {
   sku?: string;
   name?: string;
@@ -42,13 +45,23 @@ export interface TryOnOutfitItem {
 }
 export type TryOnOutfitMap = Record<string, TryOnOutfitItem>;
 
-interface Props {
-  open:   boolean;
-  outfit: TryOnOutfitMap;
-  onClose: () => void;
+/* Future-compatible shape per the brief */
+export interface TryOnEntry {
+  version:   number;
+  imageUrl:  string;   // data: URL
+  caption:   string;
+  createdAt: string;   // ISO timestamp
 }
 
-/* ── Helper: file → base64 (strip data: prefix) ─────────────────── */
+interface Props {
+  open:    boolean;
+  outfit:  TryOnOutfitMap;
+  images:  TryOnEntry[];                         // history (max 2) — provided by parent
+  onClose: () => void;
+  onNewImage: (entry: { imageUrl: string; caption: string }) => void;
+}
+
+/* ── Helpers ────────────────────────────────────────────────────── */
 function fileToBase64(file: File): Promise<{ base64: string; preview: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -62,18 +75,46 @@ function fileToBase64(file: File): Promise<{ base64: string; preview: string }> 
   });
 }
 
-export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
-  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const res = await fetch(dataUrl);
+  return res.blob();
+}
+
+function downloadDataUrl(dataUrl: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Main component
+   ───────────────────────────────────────────────────────────────── */
+export default function VirtualTryOnModal({ open, outfit, images, onClose, onNewImage }: Props) {
+  // ── Generation form state ────────────────────────────────────
+  const [photoBase64, setPhotoBase64]   = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoMime, setPhotoMime] = useState<string>("image/jpeg");
-  const [bodyType, setBodyType] = useState<string>("regular");
-  const [loading, setLoading] = useState(false);
-  const [generated, setGenerated] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [photoMime, setPhotoMime]       = useState<string>("image/jpeg");
+  const [bodyType, setBodyType]         = useState<string>("regular");
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState<string | null>(null);
   const [invalidPhoto, setInvalidPhoto] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
+  const [dragOver, setDragOver]         = useState(false);
+
+  // ── View-mode state ──────────────────────────────────────────
+  // mode: "view" = showing existing history; "input" = upload + generate
+  const [mode, setMode] = useState<"view" | "input">("input");
+  const [versionIdx, setVersionIdx] = useState(0);   // which image in history we're viewing
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [copied, setCopied] = useState<"" | "image" | "caption">("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const hasHistory     = images.length > 0;
+  const currentImage   = hasHistory ? images[Math.min(versionIdx, images.length - 1)] : null;
+  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   /* Close on Esc */
   useEffect(() => {
@@ -83,23 +124,6 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  /* Reset when reopened */
-  useEffect(() => {
-    if (!open) {
-      // Brief delay so the close animation doesn't flicker reset content
-      const t = setTimeout(() => {
-        setPhotoBase64(null);
-        setPhotoPreview(null);
-        setGenerated(null);
-        setError(null);
-        setInvalidPhoto(false);
-        setLoading(false);
-        setDragOver(false);
-      }, 250);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-
   /* Lock body scroll while open */
   useEffect(() => {
     if (!open) return;
@@ -108,6 +132,35 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
+  /* On open: pick the mode based on existing history. On close: soft reset. */
+  useEffect(() => {
+    if (open) {
+      setMode(hasHistory ? "view" : "input");
+      setVersionIdx(Math.max(0, images.length - 1));
+      setError(null);
+      setInvalidPhoto(false);
+      setShowShareMenu(false);
+      setCopied("");
+    } else {
+      const t = setTimeout(() => {
+        setPhotoBase64(null);
+        setPhotoPreview(null);
+        setLoading(false);
+        setDragOver(false);
+        setShowShareMenu(false);
+      }, 250);
+      return () => clearTimeout(t);
+    }
+  // re-evaluate when open toggles or when the outfit's history shape changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  /* When images array changes (new generation arrived), jump to the newest entry */
+  useEffect(() => {
+    if (images.length > 0) setVersionIdx(images.length - 1);
+  }, [images.length]);
+
+  /* ── Photo upload ────────────────────────────────────────────── */
   const handleFile = useCallback(async (file: File | undefined | null) => {
     if (!file) return;
     if (!ALLOWED.includes(file.type)) {
@@ -125,12 +178,12 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
       setPhotoBase64(base64);
       setPhotoPreview(preview);
       setPhotoMime(file.type);
-      setGenerated(null);
     } catch {
       setError("Could not read that file. Try another image.");
     }
   }, []);
 
+  /* ── Generate / regenerate ──────────────────────────────────── */
   const handleGenerate = useCallback(async () => {
     if (!photoBase64) {
       setError("Please upload a photo first.");
@@ -140,7 +193,6 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
     setLoading(true);
     setError(null);
     setInvalidPhoto(false);
-    setGenerated(null);
 
     try {
       const res = await fetch("/api/virtual-tryon", {
@@ -155,14 +207,17 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        // Tag invalid-photo rejections so we can style them as a popup alert
         const err = new Error(data.error || "Generation failed.");
         if (data.code === "INVALID_PHOTO") {
           (err as Error & { invalidPhoto?: boolean }).invalidPhoto = true;
         }
         throw err;
       }
-      setGenerated(data.image as string);
+      const imageUrl = data.image as string;
+      const caption  = (data.caption as string) || "Built this look with Toastie ✨";
+      onNewImage({ imageUrl, caption });
+      // Slide to view mode showing the new image
+      setMode("view");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Something went wrong — please try again.";
       setError(msg);
@@ -171,28 +226,107 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [photoBase64, photoMime, bodyType, outfit, loading]);
-
-  const handleDownload = useCallback(() => {
-    if (!generated) return;
-    const a = document.createElement("a");
-    a.href = generated;
-    a.download = `burnt-toast-tryon-${Date.now()}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }, [generated]);
+  }, [photoBase64, photoMime, bodyType, outfit, loading, onNewImage]);
 
   const handleRegenerate = useCallback(() => {
-    setGenerated(null);
-    handleGenerate();
-  }, [handleGenerate]);
+    if (loading) return;
+    // If we already have a photo in memory, regenerate directly.
+    // Otherwise, drop to input mode so user can upload again.
+    if (photoBase64) {
+      handleGenerate();
+    } else {
+      setMode("input");
+      setError(null);
+    }
+  }, [photoBase64, handleGenerate, loading]);
+
+  /* ── Download ─────────────────────────────────────────────── */
+  const handleDownload = useCallback(() => {
+    if (!currentImage) return;
+    const stamp = new Date(currentImage.createdAt || Date.now())
+      .toISOString().replace(/[:.]/g, "-");
+    downloadDataUrl(currentImage.imageUrl, `burnt-toast-tryon-v${currentImage.version}-${stamp}.png`);
+  }, [currentImage]);
+
+  /* ── Share actions ────────────────────────────────────────── */
+  const handleNativeShare = useCallback(async () => {
+    if (!currentImage) return;
+    try {
+      const blob = await dataUrlToBlob(currentImage.imageUrl);
+      const file = new File([blob], "burnt-toast-tryon.png", { type: blob.type });
+      const sharePayload: ShareData = {
+        title: "My Burnt Toast try-on",
+        text:  currentImage.caption,
+      };
+      if (typeof navigator !== "undefined" && "canShare" in navigator
+        && (navigator as Navigator & { canShare?: (d: ShareData) => boolean }).canShare?.({ files: [file] })) {
+        sharePayload.files = [file];
+      }
+      await navigator.share(sharePayload);
+    } catch {
+      // user dismissed or share failed silently
+    }
+  }, [currentImage]);
+
+  const handleShareWhatsApp = useCallback(() => {
+    if (!currentImage) return;
+    const url = `https://wa.me/?text=${encodeURIComponent(currentImage.caption)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, [currentImage]);
+
+  const handleShareInstagram = useCallback(async () => {
+    if (!currentImage) return;
+    // Instagram has no public web share intent. We help the user:
+    // 1) download the image, 2) copy the caption, 3) open Instagram.
+    handleDownload();
+    try {
+      await navigator.clipboard.writeText(currentImage.caption);
+      setCopied("caption");
+      setTimeout(() => setCopied(""), 2000);
+    } catch {}
+    // Best-effort deep link / web open
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+    if (isMobile) {
+      // Try the IG mobile deep link
+      window.location.href = "instagram://camera";
+      // Fallback after a moment in case the app isn't installed
+      setTimeout(() => window.open("https://www.instagram.com", "_blank"), 800);
+    } else {
+      window.open("https://www.instagram.com", "_blank", "noopener,noreferrer");
+    }
+  }, [currentImage, handleDownload]);
+
+  const handleCopyImage = useCallback(async () => {
+    if (!currentImage) return;
+    try {
+      const blob = await dataUrlToBlob(currentImage.imageUrl);
+      // ClipboardItem requires the image mime type. PNG is widely supported.
+      const item = new ClipboardItem({ [blob.type]: blob });
+      await navigator.clipboard.write([item]);
+      setCopied("image");
+      setTimeout(() => setCopied(""), 2000);
+    } catch {
+      setError("Couldn't copy image — try downloading instead.");
+    }
+  }, [currentImage]);
+
+  const handleCopyCaption = useCallback(async () => {
+    if (!currentImage) return;
+    try {
+      await navigator.clipboard.writeText(currentImage.caption);
+      setCopied("caption");
+      setTimeout(() => setCopied(""), 2000);
+    } catch {
+      setError("Couldn't copy caption.");
+    }
+  }, [currentImage]);
 
   if (!open) return null;
 
-  /* Count outfit items for the small subtitle */
   const itemCount = Object.values(outfit).filter(i => i?.name).length;
 
+  /* ────────────────────────────────────────────────────────────── */
   return (
     <div
       role="dialog"
@@ -214,8 +348,8 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
           background: BG,
           border: `1px solid ${BORDER}`,
           borderRadius: 20,
-          width: "100%", maxWidth: 560,
-          maxHeight: "92vh",
+          width: "100%", maxWidth: 580,
+          maxHeight: "94vh",
           overflowY: "auto",
           boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
           position: "relative",
@@ -227,7 +361,7 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
           onClick={onClose}
           aria-label="Close"
           style={{
-            position: "absolute", top: 14, right: 14, zIndex: 2,
+            position: "absolute", top: 14, right: 14, zIndex: 4,
             width: 34, height: 34, borderRadius: "50%",
             background: CARD, border: `1px solid ${BORDER}`,
             cursor: "pointer",
@@ -237,10 +371,10 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
           <X size={16} stroke={TEXT} />
         </button>
 
-        <div style={{ padding: "26px 24px 22px" }}>
+        <div style={{ padding: "26px 22px 22px" }}>
 
           {/* Header */}
-          <div style={{ textAlign: "center", marginBottom: 22 }}>
+          <div style={{ textAlign: "center", marginBottom: 18 }}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 8,
               padding: "4px 12px", borderRadius: 999,
@@ -253,88 +387,24 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
             </div>
             <h2 style={{
               fontFamily: FONT_DISPLAY, color: TEXT,
-              fontSize: 28, lineHeight: 1.1,
+              fontSize: 26, lineHeight: 1.1,
               margin: "0 0 6px",
             }}>
-              See Yourself In <em style={{ fontStyle: "italic" }}>This Look</em>
+              {mode === "view"
+                ? <>Your <em style={{ fontStyle: "italic" }}>Try-On</em></>
+                : <>See Yourself In <em style={{ fontStyle: "italic" }}>This Look</em></>}
             </h2>
             <p style={{
-              color: MUTED, fontSize: 13, lineHeight: 1.5,
+              color: MUTED, fontSize: 12.5, lineHeight: 1.5,
               margin: "0 auto", maxWidth: 380,
             }}>
-              Upload a photo and let Toastie visualize this outfit on you.
-              {itemCount > 0 && (
-                <> · <span style={{ color: TEXT, fontWeight: 500 }}>{itemCount} item{itemCount !== 1 ? "s" : ""}</span></>
-              )}
+              {mode === "view"
+                ? <>Saved on your device · {images.length}/2 version{images.length !== 1 ? "s" : ""}</>
+                : <>Upload a photo and let Toastie visualize this outfit on you.
+                    {itemCount > 0 && <> · <span style={{ color: TEXT, fontWeight: 500 }}>{itemCount} item{itemCount !== 1 ? "s" : ""}</span></>}
+                  </>}
             </p>
           </div>
-
-          {/* ═══ RESULT VIEW ═════════════════════════════════════ */}
-          {generated && !loading && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{
-                position: "relative",
-                borderRadius: 14,
-                overflow: "hidden",
-                border: `1px solid ${BORDER}`,
-                background: SOFT,
-                aspectRatio: "3/4",
-                maxWidth: 440, margin: "0 auto",
-                width: "100%",
-              }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={generated}
-                  alt="Your virtual try-on"
-                  style={{
-                    width: "100%", height: "100%",
-                    objectFit: "contain", display: "block",
-                  }}
-                />
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  onClick={handleRegenerate}
-                  disabled={loading}
-                  style={{
-                    flex: 1, minWidth: 140,
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "12px 16px", borderRadius: 999,
-                    background: "transparent", border: `1px solid ${TEXT}`, color: TEXT,
-                    fontFamily: FONT_MONO, fontSize: 11, letterSpacing: 1.8, fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  <RefreshCw size={13} /> REGENERATE
-                </button>
-                <button
-                  onClick={handleDownload}
-                  style={{
-                    flex: 1, minWidth: 140,
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "12px 16px", borderRadius: 999,
-                    background: TEXT, border: "none", color: BG,
-                    fontFamily: FONT_MONO, fontSize: 11, letterSpacing: 1.8, fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  <Download size={13} /> DOWNLOAD
-                </button>
-                <button
-                  onClick={onClose}
-                  style={{
-                    width: "100%",
-                    padding: "10px 16px", borderRadius: 999,
-                    background: "transparent", border: `1px solid ${BORDER}`, color: MUTED,
-                    fontFamily: FONT_MONO, fontSize: 10, letterSpacing: 1.8, fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  CLOSE
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* ═══ LOADING VIEW ════════════════════════════════════ */}
           {loading && (
@@ -365,9 +435,243 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
             </div>
           )}
 
-          {/* ═══ INPUT VIEW ══════════════════════════════════════ */}
-          {!loading && !generated && (
+          {/* ═══ VIEW MODE — gallery + share ════════════════════ */}
+          {!loading && mode === "view" && currentImage && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+              {/* Big image preview */}
+              <div style={{
+                position: "relative",
+                borderRadius: 14,
+                overflow: "hidden",
+                border: `1px solid ${BORDER}`,
+                background: SOFT,
+                aspectRatio: "3/4",
+                maxWidth: 460, margin: "0 auto",
+                width: "100%",
+              }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentImage.imageUrl}
+                  alt={`Virtual try-on version ${currentImage.version}`}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+                />
+                {/* Version pill */}
+                <div style={{
+                  position: "absolute", top: 10, left: 10,
+                  padding: "4px 10px", borderRadius: 999,
+                  background: "rgba(26,26,26,0.78)", color: "#fff",
+                  fontFamily: FONT_MONO, fontSize: 9, letterSpacing: 1.8, fontWeight: 600,
+                  backdropFilter: "blur(4px)",
+                }}>
+                  V{currentImage.version}
+                </div>
+
+                {/* Prev/next arrows when 2 versions exist */}
+                {images.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setVersionIdx(i => Math.max(0, i - 1))}
+                      disabled={versionIdx === 0}
+                      aria-label="Previous version"
+                      style={{
+                        position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
+                        width: 32, height: 32, borderRadius: "50%",
+                        background: "rgba(255,255,255,0.92)", border: `1px solid ${BORDER}`,
+                        cursor: versionIdx === 0 ? "not-allowed" : "pointer",
+                        opacity: versionIdx === 0 ? 0.4 : 1,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}
+                    >
+                      <ChevronLeft size={16} stroke={TEXT} />
+                    </button>
+                    <button
+                      onClick={() => setVersionIdx(i => Math.min(images.length - 1, i + 1))}
+                      disabled={versionIdx >= images.length - 1}
+                      aria-label="Next version"
+                      style={{
+                        position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                        width: 32, height: 32, borderRadius: "50%",
+                        background: "rgba(255,255,255,0.92)", border: `1px solid ${BORDER}`,
+                        cursor: versionIdx >= images.length - 1 ? "not-allowed" : "pointer",
+                        opacity: versionIdx >= images.length - 1 ? 0.4 : 1,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}
+                    >
+                      <ChevronRight size={16} stroke={TEXT} />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Version switcher tabs */}
+              {images.length > 1 && (
+                <div style={{
+                  display: "flex", gap: 6, justifyContent: "center",
+                }}>
+                  {images.map((entry, i) => (
+                    <button
+                      key={entry.createdAt + i}
+                      onClick={() => setVersionIdx(i)}
+                      style={{
+                        padding: "6px 14px", borderRadius: 999,
+                        background: i === versionIdx ? TEXT : "transparent",
+                        color: i === versionIdx ? BG : TEXT,
+                        border: `1px solid ${i === versionIdx ? TEXT : BORDER}`,
+                        fontFamily: FONT_MONO, fontSize: 10, letterSpacing: 1.8, fontWeight: 600,
+                        cursor: "pointer", transition: "all 150ms ease",
+                      }}
+                    >
+                      VERSION {entry.version}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Caption block */}
+              <div style={{
+                background: CARD, border: `1px solid ${BORDER}`,
+                borderRadius: 12, padding: "12px 14px",
+                color: TEXT, fontSize: 13, lineHeight: 1.55,
+                whiteSpace: "pre-line",
+              }}>
+                {currentImage.caption}
+              </div>
+
+              {/* Action row */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button
+                  onClick={() => setShowShareMenu(s => !s)}
+                  style={{
+                    flex: 1, minWidth: 110,
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    padding: "11px 14px", borderRadius: 999,
+                    background: TEXT, border: "none", color: BG,
+                    fontFamily: FONT_MONO, fontSize: 11, letterSpacing: 1.6, fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Share2 size={13} /> SHARE
+                </button>
+                <button
+                  onClick={handleDownload}
+                  style={{
+                    flex: 1, minWidth: 110,
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    padding: "11px 14px", borderRadius: 999,
+                    background: "transparent", border: `1px solid ${TEXT}`, color: TEXT,
+                    fontFamily: FONT_MONO, fontSize: 11, letterSpacing: 1.6, fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Download size={13} /> DOWNLOAD
+                </button>
+                <button
+                  onClick={handleRegenerate}
+                  disabled={loading}
+                  style={{
+                    flex: 1, minWidth: 110,
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    padding: "11px 14px", borderRadius: 999,
+                    background: "transparent", border: `1px solid ${BORDER}`, color: TEXT,
+                    fontFamily: FONT_MONO, fontSize: 11, letterSpacing: 1.6, fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  <RefreshCw size={13} /> REGENERATE
+                </button>
+                <button
+                  onClick={onClose}
+                  style={{
+                    width: "100%",
+                    padding: "9px 14px", borderRadius: 999,
+                    background: "transparent", border: `1px solid ${BORDER}`, color: MUTED,
+                    fontFamily: FONT_MONO, fontSize: 10, letterSpacing: 1.8, fontWeight: 600,
+                    cursor: "pointer", marginTop: 2,
+                  }}
+                >
+                  CLOSE
+                </button>
+              </div>
+
+              {/* Share menu — appears below action row */}
+              {showShareMenu && (
+                <div style={{
+                  marginTop: 4,
+                  background: CARD, border: `1px solid ${BORDER}`,
+                  borderRadius: 14, padding: 8,
+                  display: "flex", flexDirection: "column", gap: 2,
+                  animation: "btAlertPop 200ms ease",
+                }}>
+                  {canNativeShare && (
+                    <ShareRow
+                      onClick={handleNativeShare}
+                      icon={<Share2 size={15} stroke={TEXT} />}
+                      label="Share via device"
+                      sub="Use any installed app"
+                    />
+                  )}
+                  <ShareRow
+                    onClick={handleShareInstagram}
+                    icon={<Instagram size={15} stroke="#E4405F" />}
+                    label="Share to Instagram"
+                    sub="Image downloads + caption copies"
+                  />
+                  <ShareRow
+                    onClick={handleShareWhatsApp}
+                    icon={<MessageCircle size={15} stroke="#25D366" />}
+                    label="Share to WhatsApp"
+                    sub="Opens WhatsApp with caption"
+                  />
+                  <ShareRow
+                    onClick={handleCopyImage}
+                    icon={copied === "image" ? <Check size={15} stroke={SAGE_DEEP} /> : <Copy size={15} stroke={TEXT} />}
+                    label={copied === "image" ? "Image copied!" : "Copy image"}
+                    sub="Paste in any app"
+                  />
+                  <ShareRow
+                    onClick={handleCopyCaption}
+                    icon={copied === "caption" ? <Check size={15} stroke={SAGE_DEEP} /> : <Copy size={15} stroke={TEXT} />}
+                    label={copied === "caption" ? "Caption copied!" : "Copy caption"}
+                    sub="Paste into your post"
+                  />
+                </div>
+              )}
+
+              {/* Error in view mode (e.g. share failure) */}
+              {error && (
+                <div role="alert" style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  background: "#fef2f2", border: "1px solid #fecaca",
+                  borderRadius: 10, padding: "8px 12px",
+                  color: "#b91c1c", fontSize: 12,
+                }}>
+                  <AlertCircle size={14} stroke="#b91c1c" />
+                  <span>{error}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ═══ INPUT MODE — upload + body type + generate ════ */}
+          {!loading && mode === "input" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+              {/* Back to view if history exists */}
+              {hasHistory && (
+                <button
+                  onClick={() => setMode("view")}
+                  style={{
+                    alignSelf: "flex-start",
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    background: "transparent", border: "none",
+                    color: MUTED, cursor: "pointer", padding: 0,
+                    fontFamily: FONT_MONO, fontSize: 10, letterSpacing: 1.5,
+                  }}
+                >
+                  <ChevronLeft size={13} /> BACK TO TRY-ON
+                </button>
+              )}
 
               {/* Photo upload */}
               <div>
@@ -483,29 +787,22 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
                 </select>
               </div>
 
-              {/* Error — short popup-style alert for INVALID_PHOTO, plain row otherwise */}
+              {/* Error */}
               {error && (
-                <div
-                  role="alert"
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    background: invalidPhoto ? "#FFFAF0" : "#fef2f2",
-                    border: `1px solid ${invalidPhoto ? "#F0C97D" : "#fecaca"}`,
-                    borderRadius: 12,
-                    padding: invalidPhoto ? "12px 14px" : "10px 12px",
-                    color: invalidPhoto ? "#8A5A00" : "#b91c1c",
-                    fontSize: invalidPhoto ? 13 : 12,
-                    lineHeight: 1.4,
-                    fontWeight: invalidPhoto ? 600 : 400,
-                    boxShadow: invalidPhoto ? "0 4px 14px rgba(0,0,0,0.06)" : "none",
-                    animation: invalidPhoto ? "btAlertPop 220ms ease" : undefined,
-                  }}
-                >
-                  <AlertCircle
-                    size={invalidPhoto ? 18 : 14}
-                    stroke={invalidPhoto ? "#8A5A00" : "#b91c1c"}
-                    style={{ flexShrink: 0 }}
-                  />
+                <div role="alert" style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  background: invalidPhoto ? "#FFFAF0" : "#fef2f2",
+                  border: `1px solid ${invalidPhoto ? "#F0C97D" : "#fecaca"}`,
+                  borderRadius: 12,
+                  padding: invalidPhoto ? "12px 14px" : "10px 12px",
+                  color: invalidPhoto ? "#8A5A00" : "#b91c1c",
+                  fontSize: invalidPhoto ? 13 : 12,
+                  lineHeight: 1.4,
+                  fontWeight: invalidPhoto ? 600 : 400,
+                  boxShadow: invalidPhoto ? "0 4px 14px rgba(0,0,0,0.06)" : "none",
+                  animation: invalidPhoto ? "btAlertPop 220ms ease" : undefined,
+                }}>
+                  <AlertCircle size={invalidPhoto ? 18 : 14} stroke={invalidPhoto ? "#8A5A00" : "#b91c1c"} style={{ flexShrink: 0 }} />
                   <span>{error}</span>
                 </div>
               )}
@@ -529,7 +826,7 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
                   marginTop: 2,
                 }}
               >
-                <Sparkles size={14} /> GENERATE TRY-ON
+                <Sparkles size={14} /> {hasHistory ? "REGENERATE TRY-ON" : "GENERATE TRY-ON"}
               </button>
 
               <div style={{
@@ -585,5 +882,43 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
         }
       `}</style>
     </div>
+  );
+}
+
+/* ── Share menu row ─────────────────────────────────────────── */
+function ShareRow({
+  onClick, icon, label, sub,
+}: {
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  sub: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 12,
+        background: "transparent", border: "none",
+        padding: "9px 10px", borderRadius: 10,
+        cursor: "pointer", textAlign: "left",
+        transition: "background 150ms ease",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = SOFT; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+    >
+      <div style={{
+        width: 32, height: 32, borderRadius: 10,
+        background: SOFT, border: `1px solid ${BORDER}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: TEXT }}>{label}</div>
+        <div style={{ fontSize: 11, color: MUTED, marginTop: 1 }}>{sub}</div>
+      </div>
+    </button>
   );
 }

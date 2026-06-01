@@ -190,6 +190,90 @@ async function validatePhotoWithClaude(
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────
+   CAPTION GENERATION — Gen-Z social caption for share feature
+   ─────────────────────────────────────────────────────────────────
+   Tiny Claude Haiku call after Gemini returns an image. Crafts a
+   natural-sounding social caption mentioning the look + subtle
+   Toastie branding. Fail-soft: returns a sensible fallback caption
+   if Claude is unavailable.
+   ───────────────────────────────────────────────────────────────── */
+
+const CAPTION_SYSTEM_PROMPT = `You are Toastie, an AI fashion stylist for the brand Burnt Toast.
+
+Write ONE short Gen-Z social media caption (Instagram / WhatsApp status
+style) for a user who just generated a virtual try-on photo of an outfit
+you helped them build.
+
+OUTPUT RULES:
+- 1 to 3 SHORT paragraphs, separated by blank lines.
+- Total length: roughly 25 to 55 words.
+- Natural, trendy, slightly playful Gen-Z voice. Never corporate.
+- Mention "Toastie" subtly ONCE (e.g. "built with Toastie", "styled by Toastie", "Toastie pulled through").
+- Mention a couple of outfit pieces by category if relevant (top / bottom / dress / footwear / bag / shades / necklace) — never invent product names.
+- Use 1 to 3 emojis TOTAL across the whole caption. Tasteful, not spammy.
+- Optionally end with a soft question or hashtag like "Would you wear this? 👀" or "#StyledByToastie".
+- NEVER use quotation marks around the whole caption.
+- NEVER include markdown, code fences, or explanations — ONLY the caption text.
+
+Inspired tone examples (do NOT copy verbatim):
+- "Main character energy unlocked ✨\\n\\nBuilt this look with Toastie and honestly obsessed 😍\\n\\nWould you wear this? 👀"
+- "POV: your stylist actually gets you ✨\\n\\nCreated this fit with Toastie and I'm not over it.\\n\\nMinimal effort. Maximum vibe.\\n\\n#StyledByToastie"`;
+
+function buildCaptionUserPrompt(outfit: Record<string, OutfitItemPayload>, bodyType?: string): string {
+  const pieces: string[] = [];
+  for (const [role, item] of Object.entries(outfit)) {
+    if (!item?.name) continue;
+    const label = SLOT_LABELS[role] ?? role.toUpperCase();
+    const color = item.colors?.[0] ? ` (${item.colors[0]})` : "";
+    pieces.push(`${label}: ${item.name}${color}`);
+  }
+  const body = bodyType && bodyType !== "prefer-not-to-say"
+    ? `Body type vibe: ${bodyType.replace(/-/g, " ")}.`
+    : "";
+  return `Outfit just rendered:
+${pieces.join("\n")}
+${body}
+Write the caption now. Output ONLY the caption.`;
+}
+
+function fallbackCaption(outfit: Record<string, OutfitItemPayload>): string {
+  const pieces = Object.values(outfit).filter(i => i?.name).slice(0, 2).map(i => i!.name);
+  const items = pieces.length ? ` — that ${pieces.join(" + ")} hits different` : "";
+  return `Main character energy unlocked ✨\n\nBuilt this look with Toastie${items}.\n\nWould you wear it? 👀`;
+}
+
+async function generateCaption(
+  outfit: Record<string, OutfitItemPayload>,
+  bodyType?: string,
+): Promise<string> {
+  if (!hasAnthropicKey()) return fallbackCaption(outfit);
+  try {
+    const client = getAnthropicClient();
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 200,
+      system: CAPTION_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: buildCaptionUserPrompt(outfit, bodyType) }],
+    });
+    const text = response.content
+      .filter(b => b.type === "text")
+      .map(b => (b as { type: "text"; text: string }).text)
+      .join("")
+      .trim();
+    // Strip any accidental markdown / quotes
+    const cleaned = text
+      .replace(/^```[a-z]*\s*/i, "")
+      .replace(/\s*```$/, "")
+      .replace(/^"+|"+$/g, "")
+      .trim();
+    return cleaned || fallbackCaption(outfit);
+  } catch (e) {
+    console.error("[/api/virtual-tryon] caption generation failed (fallback):", e instanceof Error ? e.message : e);
+    return fallbackCaption(outfit);
+  }
+}
+
 /* ── Build the rich text prompt from outfit data ───────────────── */
 function buildPrompt(outfit: Record<string, OutfitItemPayload>, bodyType?: string): string {
   const slots: string[] = [];
@@ -440,8 +524,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Generate the Gen-Z share caption alongside the image (best-effort)
+  const caption = await generateCaption(outfit, bodyType);
+
   return NextResponse.json({
     image:    `data:${imageMime};base64,${imageBase64}`,
     mimeType: imageMime,
+    caption,
   });
 }
