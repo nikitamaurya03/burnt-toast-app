@@ -12,7 +12,9 @@ import { getGeminiKey } from "@/utils/geminiKey";
    - Returns base64 image data the client can render + download
    ───────────────────────────────────────────────────────────────── */
 
-const GEMINI_MODEL = "gemini-2.5-flash-image";
+/* Gemini 3 Pro Image — best-in-class for preserving product detail
+   when reference images are supplied alongside the user photo.    */
+const GEMINI_MODEL = "gemini-3-pro-image";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 /* ── Allowed image mime types from upload ─────────────────────── */
@@ -67,25 +69,47 @@ function buildPrompt(outfit: Record<string, OutfitItemPayload>, bodyType?: strin
       : `Keep the person's existing body proportions exactly as in the input photo.`;
 
   return `
-Generate a hyperrealistic full-body fashion editorial photograph of the SAME PERSON shown in the input photo, now wearing the following outfit head-to-toe.
+Generate ONE hyperrealistic full-body fashion editorial photograph of the SAME PERSON from the input photo, now wearing the outfit shown in the reference product images.
 
-CRITICAL — IDENTITY PRESERVATION:
-- The face, skin tone, hair, eye color, and overall identity MUST be identical to the input photo.
-- Do not alter or beautify the person's face. Same person, recognizable.
-- ${bodyTypeLine}
-- Stand the person in a natural relaxed pose, facing the camera, full body visible.
+═══ ABSOLUTE RULES (NON-NEGOTIABLE) ═══
 
-OUTFIT TO RENDER (use the reference product images that follow as the SINGLE SOURCE OF TRUTH for what each item looks like — match colors, prints, cuts and details exactly):
+1. IDENTITY — Keep the person's face, skin tone, hair color, hair style,
+   eye color, and overall facial structure 100% identical to the input
+   photo. Do not beautify, age, slim, or alter their face. Same person.
+
+2. PRODUCT FIDELITY — Each reference product image is the GROUND TRUTH
+   for that garment. Reproduce every product EXACTLY as shown:
+   - Same exact color (do not shift hue, do not lighten/darken)
+   - Same exact print, pattern, embroidery, or graphic
+   - Same exact silhouette, cut, length, and proportion
+   - Same exact fabric type and texture
+   - Same exact neckline, sleeves, hemline, and details
+   Do NOT invent, paraphrase, or stylize the garment. If the reference
+   shows a pink knitted top with scalloped neckline, render a pink
+   knitted top with scalloped neckline — not "something similar".
+
+3. BODY — ${bodyTypeLine}
+
+4. POSE & FRAMING — Person standing straight, facing the camera,
+   natural relaxed pose, arms slightly away from the body, full body
+   visible head to toe, 3:4 portrait aspect ratio.
+
+═══ OUTFIT BREAKDOWN (each item has a reference image below) ═══
 ${slots.join("\n")}
 
-VISUAL STYLE:
-- Clean editorial fashion photography, neutral light-cream studio background (#F1EBDD).
-- Soft, even, natural lighting. No harsh shadows.
-- 3:4 portrait aspect ratio, full body framing from head to toe.
-- High resolution, photo-real, magazine-quality.
-- NO text, NO watermarks, NO logos, NO additional people, NO captions.
+═══ VISUAL STYLE ═══
+- Clean editorial fashion photography
+- Neutral light-cream studio background (#F1EBDD), seamless
+- Soft, even, natural lighting; no harsh shadows
+- High resolution, photo-real, magazine-quality
+- The outfit must be the visual hero — proportionally accurate
 
-The reference images attached below show the actual products. Render the outfit to look exactly like those products in fabric, color, fit, and silhouette. Do not invent generic clothing.
+═══ STRICTLY FORBIDDEN ═══
+- NO text, watermarks, logos (other than what's on the reference products), captions, or labels
+- NO additional people, hands, props, or background objects
+- NO altering the person's identity
+- NO generic/stock clothing — only what the reference images show
+- NO multiple poses or collage; output ONE single image only
 `.trim();
 }
 
@@ -192,7 +216,9 @@ export async function POST(req: NextRequest) {
         contents: [{ parts }],
         generationConfig: {
           responseModalities: ["IMAGE", "TEXT"],
-          temperature: 0.85,
+          // Lower temperature → stay closer to reference products,
+          // less creative drift on fabric, color, and silhouette.
+          temperature: 0.35,
         },
       }),
     });

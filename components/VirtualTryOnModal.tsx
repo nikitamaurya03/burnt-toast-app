@@ -349,7 +349,7 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
               <div style={{
                 fontFamily: FONT_MONO, fontSize: 10, color: MUTED, letterSpacing: 2,
               }}>
-                THIS USUALLY TAKES 10–25 SECONDS
+                THIS USUALLY TAKES 25–45 SECONDS
               </div>
             </div>
           )}
