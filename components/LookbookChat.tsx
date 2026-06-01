@@ -9,6 +9,7 @@ import {
   Minus, Building2, Flower2, Cloud, Star, Sun, Moon, Flame,
   Camera, ImageIcon, XCircle,
 } from "lucide-react";
+import VirtualTryOnModal, { TryOnOutfitMap } from "./VirtualTryOnModal";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { products as allProducts } from "@/data/products";
@@ -798,6 +799,24 @@ function OutfitBlock({
   const [shopAdded,     setShopAdded]     = useState(false);
   const [showLookSizer, setShowLookSizer] = useState(false);
   const [lookSizes,     setLookSizes]     = useState<Record<string, string>>({});
+  /* Virtual Try-On modal — opens only when a complete outfit exists */
+  const [tryOnOpen,     setTryOnOpen]     = useState(false);
+  const tryOnOutfit: TryOnOutfitMap = allKeys.reduce((acc, k) => {
+    const it = outfit[k];
+    if (it?.name) {
+      acc[k] = {
+        sku:          it.sku,
+        name:         it.name,
+        price:        it.price,
+        note:         it.note,
+        url:          it.url,
+        img:          it.img ?? null,
+        colors:       it.colors,
+        color_family: it.color_family,
+      };
+    }
+    return acc;
+  }, {} as TryOnOutfitMap);
 
   // All sizable items have a size picked
   const allSizesPicked = sizableKeys.every(k => lookSizes[k]);
@@ -995,28 +1014,59 @@ function OutfitBlock({
               </div>
               <div style={{ color: MUTED, fontSize: 11, marginTop: 2, fontStyle: "italic" }}>{budget_note}</div>
             </div>
-            <button
-              onClick={handleLookCartClick}
-              style={{
-                background: shopAdded ? "#16a34a" : showLookSizer ? ACCENT : ACCENT,
-                color: "#fff", border: "none", borderRadius: 8,
-                padding: "9px 16px", fontSize: 11, fontWeight: 900,
-                cursor: "pointer", fontFamily: "'Courier New',monospace",
-                letterSpacing: 1, whiteSpace: "nowrap",
-                transition: "background 0.2s",
-                display: "flex", alignItems: "center", gap: 6,
-              }}
-            >
-              {shopAdded
-                ? <><Check size={13} /> ADDED TO CART!</>
-                : showLookSizer
-                  ? <>✕ CANCEL</>
-                  : <><ShoppingBag size={13} /> SHOP THE LOOK</>
-              }
-            </button>
+            <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {/* Try-On — only when a complete outfit exists */}
+              {allKeys.length > 0 && (
+                <button
+                  onClick={e => { e.stopPropagation(); setTryOnOpen(true); }}
+                  aria-label="Try this look on virtually"
+                  style={{
+                    background: "transparent",
+                    color: ACCENT, border: `1px solid ${ACCENT}`, borderRadius: 8,
+                    padding: "8px 14px", fontSize: 11, fontWeight: 900,
+                    cursor: "pointer", fontFamily: "'Courier New',monospace",
+                    letterSpacing: 1, whiteSpace: "nowrap",
+                    transition: "background 0.2s, color 0.2s",
+                    display: "flex", alignItems: "center", gap: 6,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = ACCENT; e.currentTarget.style.color = "#fff"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = ACCENT; }}
+                >
+                  <Camera size={13} /> TRY IT ON
+                </button>
+              )}
+
+              <button
+                onClick={handleLookCartClick}
+                style={{
+                  background: shopAdded ? "#16a34a" : showLookSizer ? ACCENT : ACCENT,
+                  color: "#fff", border: "none", borderRadius: 8,
+                  padding: "9px 16px", fontSize: 11, fontWeight: 900,
+                  cursor: "pointer", fontFamily: "'Courier New',monospace",
+                  letterSpacing: 1, whiteSpace: "nowrap",
+                  transition: "background 0.2s",
+                  display: "flex", alignItems: "center", gap: 6,
+                }}
+              >
+                {shopAdded
+                  ? <><Check size={13} /> ADDED TO CART!</>
+                  : showLookSizer
+                    ? <>✕ CANCEL</>
+                    : <><ShoppingBag size={13} /> SHOP THE LOOK</>
+                }
+              </button>
+            </div>
           </div>
         )}
       </div>
+
+      {/* Virtual Try-On modal — mounted at outfit level so each look
+          has its own modal state. Does not affect outfit data. */}
+      <VirtualTryOnModal
+        open={tryOnOpen}
+        outfit={tryOnOutfit}
+        onClose={() => setTryOnOpen(false)}
+      />
     </div>
   );
 }
