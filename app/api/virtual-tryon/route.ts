@@ -12,7 +12,7 @@ import { getGeminiKey } from "@/utils/geminiKey";
    - Returns base64 image data the client can render + download
    ───────────────────────────────────────────────────────────────── */
 
-const GEMINI_MODEL = "gemini-2.5-flash-image-preview";
+const GEMINI_MODEL = "gemini-2.5-flash-image";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 /* ── Allowed image mime types from upload ─────────────────────── */
@@ -109,8 +109,16 @@ async function fetchInline(url: string): Promise<{ mimeType: string; data: strin
 export async function POST(req: NextRequest) {
   const apiKey = getGeminiKey();
   if (!apiKey) {
+    console.error(
+      "[/api/virtual-tryon] GEMINI_API_KEY missing.",
+      `cwd=${process.cwd()}`,
+      "Has process.env value?", !!process.env.GEMINI_API_KEY,
+    );
     return NextResponse.json(
-      { error: "Gemini API key not configured." },
+      {
+        error:
+          "Gemini API key not loaded. Restart your dev server (Ctrl+C, then npm run dev) so it re-reads .env.local.",
+      },
       { status: 500 },
     );
   }
@@ -200,10 +208,16 @@ export async function POST(req: NextRequest) {
   if (!geminiResponse.ok) {
     const text = await geminiResponse.text().catch(() => "");
     console.error("[/api/virtual-tryon] Gemini error", geminiResponse.status, text.slice(0, 300));
-    return NextResponse.json(
-      { error: "We couldn't generate your try-on image right now. Please try again." },
-      { status: 502 },
-    );
+    // Map common upstream errors to friendly UI copy
+    let userMessage = "We couldn't generate your try-on image right now. Please try again.";
+    if (geminiResponse.status === 429) {
+      userMessage = "Gemini hit a rate limit. Wait ~60 seconds and try again, or check your plan at ai.google.dev/gemini-api/docs/rate-limits.";
+    } else if (geminiResponse.status === 403) {
+      userMessage = "Gemini rejected the request (403). Check that your API key has access to gemini-2.5-flash-image and billing is enabled.";
+    } else if (geminiResponse.status === 400) {
+      userMessage = "Photo or outfit data was rejected by Gemini. Try a different photo.";
+    }
+    return NextResponse.json({ error: userMessage }, { status: 502 });
   }
 
   // ── Parse the image out of the response ──────────────────────
