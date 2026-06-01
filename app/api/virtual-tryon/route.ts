@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGeminiKey } from "@/utils/geminiKey";
+import { getAnthropicClient, hasAnthropicKey } from "@/utils/claudeClient";
 
 /* ─────────────────────────────────────────────────────────────────
    Virtual Try-On — Gemini Image Generation
@@ -50,6 +51,144 @@ const SLOT_LABELS: Record<string, string> = {
   hat:        "HAT",
   watch:      "WATCH",
 };
+
+/* ─────────────────────────────────────────────────────────────────
+   PRE-VALIDATION — Claude Vision photo quality gate
+   ─────────────────────────────────────────────────────────────────
+   Runs BEFORE the (expensive + slow) Gemini call so we don't waste
+   ~$0.13 + ~35s rendering an outfit on a blurry/cropped/multi-person
+   photo. Returns one tiny user-facing reason (≤6 words) when the
+   photo is unsuitable.
+
+   Fail-open philosophy: if Claude is down or unauthorized, we let
+   the request through — never block a real user because of our
+   infra. Bad photos still hit Gemini, but they hit it rarely.
+   ───────────────────────────────────────────────────────────────── */
+
+interface ValidationResult {
+  isValid: boolean;
+  reason: string;
+}
+
+type AnthropicImageMime = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+
+const VALIDATION_SYSTEM_PROMPT = `You are a strict image-quality validator for a fashion virtual try-on feature.
+
+The user uploads a photo of themselves so an AI can render the same person wearing a chosen outfit. Reject any photo that would produce a poor try-on render.
+
+Evaluate the photo on EVERY criterion below:
+1. Face is present and visible
+2. Face is sharp and clear (not blurred)
+3. Face is large enough to recognize (not tiny in frame)
+4. Face is not occluded (no mask, hand, hair, or object covering it)
+5. Image is overall sharp (not motion-blurred, not out of focus)
+6. Lighting is adequate (not too dark, not blown out, not heavy backlight)
+7. Image is not noisy/grainy
+8. EXACTLY ONE person is visible in the photo (reject 0 or 2+)
+9. At least the upper body (head + torso) is visible; full body preferred
+10. Image resolution is sufficient (not tiny / heavily pixelated)
+
+RESPONSE FORMAT — return ONLY a single JSON object, no markdown fences, no commentary:
+{ "isValid": true | false, "reason": "<short string>" }
+
+If the photo passes ALL ten checks: { "isValid": true, "reason": "" }
+
+If the photo fails ANY check, pick the SINGLE most impactful issue and return ONE of these exact short phrases (or something equally short):
+- "Face not clearly visible"
+- "Upload a sharper photo"
+- "Image is too blurry"
+- "Better lighting needed"
+- "Use a single-person photo"
+- "Face is partially blocked"
+- "Upload a higher quality image"
+- "Full body photo preferred"
+- "No person detected"
+- "Photo too dark"
+
+HARD RULES:
+- Reason MUST be 5 words or fewer.
+- No explanations, no apologies, no scores, no internal reasoning in the output.
+- Output ONLY the JSON object — nothing before or after.`;
+
+async function validatePhotoWithClaude(
+  imageBase64: string,
+  mimeType: string,
+): Promise<ValidationResult> {
+  // Fail-open if Claude isn't configured
+  if (!hasAnthropicKey()) {
+    console.warn("[/api/virtual-tryon] Claude not configured — skipping pre-validation");
+    return { isValid: true, reason: "" };
+  }
+
+  // Claude vision only supports these MIME types
+  const allowed: AnthropicImageMime[] = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const media = (allowed.includes(mimeType as AnthropicImageMime)
+    ? mimeType
+    : "image/jpeg") as AnthropicImageMime;
+
+  try {
+    const client = getAnthropicClient();
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 80,
+      system: VALIDATION_SYSTEM_PROMPT,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: media, data: imageBase64 },
+          },
+          {
+            type: "text",
+            text: "Validate this photo for virtual try-on. Return JSON only.",
+          },
+        ],
+      }],
+    });
+
+    const text = response.content
+      .filter(b => b.type === "text")
+      .map(b => (b as { type: "text"; text: string }).text)
+      .join("")
+      .trim();
+
+    // Strip fences if Claude added any, then extract the first {...}
+    const cleaned = text
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/, "");
+    const match = cleaned.match(/\{[\s\S]*?\}/);
+    if (!match) {
+      console.warn("[/api/virtual-tryon] Claude returned non-JSON, failing open:", text.slice(0, 80));
+      return { isValid: true, reason: "" };
+    }
+
+    let parsed: { isValid?: boolean; reason?: string };
+    try {
+      parsed = JSON.parse(match[0]);
+    } catch {
+      return { isValid: true, reason: "" };
+    }
+
+    if (typeof parsed.isValid !== "boolean") {
+      return { isValid: true, reason: "" };
+    }
+
+    // Cap reason to 6 words just in case
+    const rawReason = String(parsed.reason ?? "").trim();
+    const shortReason = rawReason.split(/\s+/).slice(0, 6).join(" ");
+
+    return {
+      isValid: parsed.isValid,
+      reason: parsed.isValid ? "" : (shortReason || "Photo not suitable"),
+    };
+  } catch (e) {
+    // Fail-open on any Claude error so the user is never blocked by infra issues
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[/api/virtual-tryon] Claude validation error (failing open):", msg);
+    return { isValid: true, reason: "" };
+  }
+}
 
 /* ── Build the rich text prompt from outfit data ───────────────── */
 function buildPrompt(outfit: Record<string, OutfitItemPayload>, bodyType?: string): string {
@@ -178,6 +317,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Photo too large. Max 5 MB." }, { status: 400 });
   }
 
+  // ── PRE-VALIDATION via Claude Vision ──────────────────────────
+  // Cheap gate to reject blurry / faceless / multi-person photos
+  // BEFORE paying for a ~$0.13 + 35s Gemini render.
+  const validation = await validatePhotoWithClaude(userPhoto, mime);
+  if (!validation.isValid) {
+    return NextResponse.json(
+      { error: validation.reason, code: "INVALID_PHOTO" },
+      { status: 400 },
+    );
+  }
+
   // ── Build prompt + parts ──────────────────────────────────────
   const prompt = buildPrompt(outfit, bodyType);
 
@@ -239,7 +389,7 @@ export async function POST(req: NextRequest) {
     if (geminiResponse.status === 429) {
       userMessage = "Gemini hit a rate limit. Wait ~60 seconds and try again, or check your plan at ai.google.dev/gemini-api/docs/rate-limits.";
     } else if (geminiResponse.status === 403) {
-      userMessage = "Gemini rejected the request (403). Check that your API key has access to gemini-2.5-flash-image and billing is enabled.";
+      userMessage = `Gemini rejected the request (403). Check that your API key has access to ${GEMINI_MODEL} and billing is enabled.`;
     } else if (geminiResponse.status === 400) {
       userMessage = "Photo or outfit data was rejected by Gemini. Try a different photo.";
     }

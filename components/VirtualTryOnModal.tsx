@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { X, Download, RefreshCw, Upload, Sparkles } from "lucide-react";
+import { X, Download, RefreshCw, Upload, Sparkles, AlertCircle } from "lucide-react";
 
 /* ── Palette mirrors LookbookChat editorial theme ───────────────── */
 const BG          = "#F1EBDD";
@@ -70,6 +70,7 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [invalidPhoto, setInvalidPhoto] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -91,6 +92,7 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
         setPhotoPreview(null);
         setGenerated(null);
         setError(null);
+        setInvalidPhoto(false);
         setLoading(false);
         setDragOver(false);
       }, 250);
@@ -117,6 +119,7 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
       return;
     }
     setError(null);
+    setInvalidPhoto(false);
     try {
       const { base64, preview } = await fileToBase64(file);
       setPhotoBase64(base64);
@@ -136,6 +139,7 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
     if (loading) return;
     setLoading(true);
     setError(null);
+    setInvalidPhoto(false);
     setGenerated(null);
 
     try {
@@ -151,12 +155,19 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
       });
       const data = await res.json();
       if (!res.ok || data.error) {
-        throw new Error(data.error || "Generation failed.");
+        // Tag invalid-photo rejections so we can style them as a popup alert
+        const err = new Error(data.error || "Generation failed.");
+        if (data.code === "INVALID_PHOTO") {
+          (err as Error & { invalidPhoto?: boolean }).invalidPhoto = true;
+        }
+        throw err;
       }
       setGenerated(data.image as string);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Something went wrong — please try again.";
       setError(msg);
+      const wasInvalid = !!(e as Error & { invalidPhoto?: boolean }).invalidPhoto;
+      setInvalidPhoto(wasInvalid);
     } finally {
       setLoading(false);
     }
@@ -472,18 +483,30 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
                 </select>
               </div>
 
-              {/* Error */}
+              {/* Error — short popup-style alert for INVALID_PHOTO, plain row otherwise */}
               {error && (
-                <div style={{
-                  background: "#fef2f2",
-                  border: "1px solid #fecaca",
-                  borderRadius: 10,
-                  padding: "10px 12px",
-                  color: "#b91c1c",
-                  fontSize: 12,
-                  lineHeight: 1.45,
-                }}>
-                  {error}
+                <div
+                  role="alert"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    background: invalidPhoto ? "#FFFAF0" : "#fef2f2",
+                    border: `1px solid ${invalidPhoto ? "#F0C97D" : "#fecaca"}`,
+                    borderRadius: 12,
+                    padding: invalidPhoto ? "12px 14px" : "10px 12px",
+                    color: invalidPhoto ? "#8A5A00" : "#b91c1c",
+                    fontSize: invalidPhoto ? 13 : 12,
+                    lineHeight: 1.4,
+                    fontWeight: invalidPhoto ? 600 : 400,
+                    boxShadow: invalidPhoto ? "0 4px 14px rgba(0,0,0,0.06)" : "none",
+                    animation: invalidPhoto ? "btAlertPop 220ms ease" : undefined,
+                  }}
+                >
+                  <AlertCircle
+                    size={invalidPhoto ? 18 : 14}
+                    stroke={invalidPhoto ? "#8A5A00" : "#b91c1c"}
+                    style={{ flexShrink: 0 }}
+                  />
+                  <span>{error}</span>
                 </div>
               )}
 
@@ -554,6 +577,11 @@ export default function VirtualTryOnModal({ open, outfit, onClose }: Props) {
         @keyframes btTryPulse {
           0%, 60%, 100% { transform: scale(1);   opacity: 0.4 }
           30%           { transform: scale(1.4); opacity: 1   }
+        }
+        @keyframes btAlertPop {
+          0%   { opacity: 0; transform: translateY(-4px) scale(0.97) }
+          60%  { opacity: 1; transform: translateY(0)    scale(1.01) }
+          100% { opacity: 1; transform: translateY(0)    scale(1)    }
         }
       `}</style>
     </div>
