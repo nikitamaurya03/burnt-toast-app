@@ -13,9 +13,9 @@ import { getAnthropicClient, hasAnthropicKey } from "@/utils/claudeClient";
    - Returns base64 image data the client can render + download
    ───────────────────────────────────────────────────────────────── */
 
-/* Gemini 3 Pro Image — best-in-class for preserving product detail
-   when reference images are supplied alongside the user photo.    */
-const GEMINI_MODEL = "gemini-3-pro-image";
+/* Gemini 3.1 Flash Image — newest fast image-gen model. Faster +
+   cheaper than 3 Pro Image, similar reference-image fidelity.    */
+const GEMINI_MODEL = "gemini-3.1-flash-image";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 /* ── Allowed image mime types from upload ─────────────────────── */
@@ -388,6 +388,8 @@ export async function POST(req: NextRequest) {
     let userMessage = "We couldn't generate your try-on image right now. Please try again.";
     if (geminiResponse.status === 429) {
       userMessage = "Gemini hit a rate limit. Wait ~60 seconds and try again, or check your plan at ai.google.dev/gemini-api/docs/rate-limits.";
+    } else if (geminiResponse.status === 503) {
+      userMessage = `${GEMINI_MODEL} is busy. Please try again in a minute.`;
     } else if (geminiResponse.status === 403) {
       userMessage = `Gemini rejected the request (403). Check that your API key has access to ${GEMINI_MODEL} and billing is enabled.`;
     } else if (geminiResponse.status === 400) {
