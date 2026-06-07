@@ -271,11 +271,58 @@ export default function VirtualTryOnModal({ open, outfit, images, onClose, onNew
     }
   }, [currentImage]);
 
-  const handleShareWhatsApp = useCallback(() => {
+  const handleShareWhatsApp = useCallback(async () => {
     if (!currentImage) return;
-    const url = `https://wa.me/?text=${encodeURIComponent(currentImage.caption)}`;
+
+    // ── 1. PREFERRED: Web Share API with the image as a file ──
+    // On mobile (Android Chrome, iOS Safari), this opens the system
+    // share sheet — which lists WhatsApp natively and sends the
+    // image + caption together as a real attachment.
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        const blob = await dataUrlToBlob(currentImage.imageUrl);
+        const file = new File(
+          [blob],
+          "burnt-toast-tryon-collage.png",
+          { type: blob.type || "image/png" },
+        );
+        const canShareFiles = "canShare" in navigator
+          && (navigator as Navigator & { canShare?: (d: ShareData) => boolean })
+            .canShare?.({ files: [file] });
+        if (canShareFiles) {
+          await navigator.share({
+            title: "My Burnt Toast try-on collage",
+            text:  currentImage.caption,
+            files: [file],
+          });
+          return; // success path — image + text delivered to WhatsApp
+        }
+      } catch {
+        // user cancelled or share failed — fall through to fallback
+      }
+    }
+
+    // ── 2. FALLBACK (desktop browsers, mobile without file-share):
+    // WhatsApp's web URL scheme (wa.me) cannot attach images. So we
+    // download the collage to the user's device, copy the caption
+    // to clipboard, then open WhatsApp with the caption pre-filled
+    // so the user just attaches the image they already have. ──
+    try { handleDownload(); } catch { /* download blocked */ }
+    try {
+      await navigator.clipboard.writeText(currentImage.caption);
+      setCopied("caption");
+      setTimeout(() => setCopied(""), 2200);
+    } catch { /* clipboard blocked — caption is still in wa.me URL */ }
+
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+    // Mobile -> wa.me deep-links to the WhatsApp app
+    // Desktop -> web.whatsapp.com so the user can paste the image too
+    const url = isMobile
+      ? `https://wa.me/?text=${encodeURIComponent(currentImage.caption)}`
+      : `https://web.whatsapp.com/send?text=${encodeURIComponent(currentImage.caption)}`;
     window.open(url, "_blank", "noopener,noreferrer");
-  }, [currentImage]);
+  }, [currentImage, handleDownload]);
 
   const handleShareInstagram = useCallback(async () => {
     if (!currentImage) return;
@@ -626,7 +673,9 @@ export default function VirtualTryOnModal({ open, outfit, images, onClose, onNew
                     onClick={handleShareWhatsApp}
                     icon={<MessageCircle size={15} stroke="#25D366" />}
                     label="Share to WhatsApp"
-                    sub="Opens WhatsApp with caption"
+                    sub={canNativeShare
+                      ? "Sends image + caption together"
+                      : "Image downloads · caption copies · WhatsApp opens"}
                   />
                   <ShareRow
                     onClick={handleCopyImage}
