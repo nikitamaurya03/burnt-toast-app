@@ -244,8 +244,11 @@ export default function VirtualTryOnModal({ open, outfit, images, onClose, onNew
   const handleDownload = useCallback(() => {
     if (!currentImage) return;
     const stamp = new Date(currentImage.createdAt || Date.now())
-      .toISOString().replace(/[:.]/g, "-");
-    downloadDataUrl(currentImage.imageUrl, `burnt-toast-tryon-v${currentImage.version}-${stamp}.png`);
+      .toISOString().slice(0, 10);
+    downloadDataUrl(
+      currentImage.imageUrl,
+      `burnt-toast-tryon-collage-v${currentImage.version}-${stamp}.png`,
+    );
   }, [currentImage]);
 
   /* ── Share actions ────────────────────────────────────────── */
@@ -253,9 +256,9 @@ export default function VirtualTryOnModal({ open, outfit, images, onClose, onNew
     if (!currentImage) return;
     try {
       const blob = await dataUrlToBlob(currentImage.imageUrl);
-      const file = new File([blob], "burnt-toast-tryon.png", { type: blob.type });
+      const file = new File([blob], "burnt-toast-tryon-collage.png", { type: blob.type });
       const sharePayload: ShareData = {
-        title: "My Burnt Toast try-on",
+        title: "My Burnt Toast try-on collage",
         text:  currentImage.caption,
       };
       if (typeof navigator !== "undefined" && "canShare" in navigator
@@ -399,8 +402,8 @@ export default function VirtualTryOnModal({ open, outfit, images, onClose, onNew
               margin: "0 auto", maxWidth: 380,
             }}>
               {mode === "view"
-                ? <>Saved on your device · {images.length}/2 version{images.length !== 1 ? "s" : ""}</>
-                : <>Upload a photo and let Toastie visualize this outfit on you.
+                ? <>Your 4-pose campaign collage · {images.length}/2 version{images.length !== 1 ? "s" : ""}</>
+                : <>Upload a photo — Toastie will render a 4-pose fashion campaign of you in this look.
                     {itemCount > 0 && <> · <span style={{ color: TEXT, fontWeight: 500 }}>{itemCount} item{itemCount !== 1 ? "s" : ""}</span></>}
                   </>}
             </p>
@@ -424,13 +427,15 @@ export default function VirtualTryOnModal({ open, outfit, images, onClose, onNew
               </div>
               <div style={{
                 fontFamily: FONT_DISPLAY, fontSize: 22, fontStyle: "italic", color: TEXT,
+                textAlign: "center", padding: "0 8px",
               }}>
-                Creating your virtual try-on…
+                Building your 4-pose campaign…
               </div>
               <div style={{
                 fontFamily: FONT_MONO, fontSize: 10, color: MUTED, letterSpacing: 2,
+                textAlign: "center",
               }}>
-                THIS USUALLY TAKES 25–45 SECONDS
+                COLLAGE RENDERING · USUALLY 35–60 SECONDS
               </div>
             </div>
           )}

@@ -202,23 +202,26 @@ async function validatePhotoWithClaude(
 const CAPTION_SYSTEM_PROMPT = `You are Toastie, an AI fashion stylist for the brand Burnt Toast.
 
 Write ONE short Gen-Z social media caption (Instagram / WhatsApp status
-style) for a user who just generated a virtual try-on photo of an outfit
-you helped them build.
+style) for a user who just generated a 4-pose virtual try-on COLLAGE of
+an outfit you helped them build. The shareable image is laid out like a
+2×2 fashion campaign carousel showing the same person in 4 different
+poses wearing the same look.
 
 OUTPUT RULES:
 - 1 to 3 SHORT paragraphs, separated by blank lines.
 - Total length: roughly 25 to 55 words.
 - Natural, trendy, slightly playful Gen-Z voice. Never corporate.
 - Mention "Toastie" subtly ONCE (e.g. "built with Toastie", "styled by Toastie", "Toastie pulled through").
+- Lean lightly into the "4 looks / 4 poses / campaign drop / which pose is your fave / carousel energy" vibe ONCE (one reference total — don't force it).
 - Mention a couple of outfit pieces by category if relevant (top / bottom / dress / footwear / bag / shades / necklace) — never invent product names.
 - Use 1 to 3 emojis TOTAL across the whole caption. Tasteful, not spammy.
-- Optionally end with a soft question or hashtag like "Would you wear this? 👀" or "#StyledByToastie".
+- Optionally end with a soft question or hashtag like "Which pose ate the most? 👀" or "#StyledByToastie".
 - NEVER use quotation marks around the whole caption.
 - NEVER include markdown, code fences, or explanations — ONLY the caption text.
 
 Inspired tone examples (do NOT copy verbatim):
-- "Main character energy unlocked ✨\\n\\nBuilt this look with Toastie and honestly obsessed 😍\\n\\nWould you wear this? 👀"
-- "POV: your stylist actually gets you ✨\\n\\nCreated this fit with Toastie and I'm not over it.\\n\\nMinimal effort. Maximum vibe.\\n\\n#StyledByToastie"`;
+- "4 looks, 1 fit, infinite serves ✨\\n\\nStyled this with Toastie and honestly each pose ate.\\n\\nWhich one's your fave? 👀"
+- "POV: your stylist gave you a campaign drop ✨\\n\\nBuilt this with Toastie — the top, pants, and shades just hit.\\n\\n#StyledByToastie"`;
 
 function buildCaptionUserPrompt(outfit: Record<string, OutfitItemPayload>, bodyType?: string): string {
   const pieces: string[] = [];
@@ -240,7 +243,7 @@ Write the caption now. Output ONLY the caption.`;
 function fallbackCaption(outfit: Record<string, OutfitItemPayload>): string {
   const pieces = Object.values(outfit).filter(i => i?.name).slice(0, 2).map(i => i!.name);
   const items = pieces.length ? ` — that ${pieces.join(" + ")} hits different` : "";
-  return `Main character energy unlocked ✨\n\nBuilt this look with Toastie${items}.\n\nWould you wear it? 👀`;
+  return `4 looks, 1 fit, infinite serves ✨\n\nStyled this with Toastie${items}.\n\nWhich pose ate the most? 👀`;
 }
 
 async function generateCaption(
@@ -292,47 +295,95 @@ function buildPrompt(outfit: Record<string, OutfitItemPayload>, bodyType?: strin
       : `Keep the person's existing body proportions exactly as in the input photo.`;
 
   return `
-Generate ONE hyperrealistic full-body fashion editorial photograph of the SAME PERSON from the input photo, now wearing the outfit shown in the reference product images.
+Generate ONE Instagram-ready fashion editorial COLLAGE in a clean 2×2 GRID, showing the SAME PERSON from the input photo in 4 different poses, all wearing the same outfit shown in the reference product images.
+
+═══ COMPOSITION ═══
+Output ONE single image, portrait orientation (3:4 / 4:5 aspect ratio).
+Divide the canvas into EXACTLY 4 EQUAL PANELS arranged in a 2×2 grid:
+
+┌────────────────┬────────────────┐
+│   PANEL 1      │   PANEL 2      │
+│   front-facing │   walking      │
+├────────────────┼────────────────┤
+│   PANEL 3      │   PANEL 4      │
+│   3/4 angle    │   lifestyle    │
+└────────────────┴────────────────┘
+
+Panels are separated by a thin clean cream-white gutter (~6-10 px),
+no harsh borders. All four panels are equally sized.
+
+═══ POSES (ONE per panel) ═══
+PANEL 1 — Front-facing studio shot. Person standing straight, facing
+camera directly, arms relaxed at sides, full body visible head to toe.
+Purpose: show the whole outfit cleanly.
+
+PANEL 2 — Natural mid-stride walking pose. Body angled slightly, one
+foot forward, garments showing natural drape and movement.
+Purpose: show movement and fabric flow.
+
+PANEL 3 — Three-quarter side angle. Person turned ~45° from camera,
+chin slightly turned to look back at lens, showing silhouette.
+Purpose: show styling details and side profile of the outfit.
+
+PANEL 4 — Lifestyle confident pose. Pick ONE that fits the outfit:
+hand in pocket / hand on hip / adjusting sunglasses / holding bag
+naturally / looking sideways with subtle smile.
+Purpose: social-media-ready influencer feel.
 
 ═══ ABSOLUTE RULES (NON-NEGOTIABLE) ═══
 
-1. IDENTITY — Keep the person's face, skin tone, hair color, hair style,
-   eye color, and overall facial structure 100% identical to the input
-   photo. Do not beautify, age, slim, or alter their face. Same person.
+1. SAME PERSON IN ALL 4 PANELS — face, skin tone, hair color, hair
+   style, eye color, body shape, and expression style MUST be 100%
+   identical across all 4 panels and identical to the input photo.
+   Do NOT generate four different people. Do NOT beautify, slim,
+   age, or otherwise alter the person's identity.
 
-2. PRODUCT FIDELITY — Each reference product image is the GROUND TRUTH
-   for that garment. Reproduce every product EXACTLY as shown:
+2. SAME OUTFIT IN ALL 4 PANELS — every garment must be IDENTICAL
+   across the 4 panels and match the reference product images
+   exactly: color, print, pattern, cut, length, fabric, details.
+   Reference product images are the GROUND TRUTH:
    - Same exact color (do not shift hue, do not lighten/darken)
-   - Same exact print, pattern, embroidery, or graphic
-   - Same exact silhouette, cut, length, and proportion
+   - Same exact print, pattern, embroidery, graphic
+   - Same exact silhouette, cut, length, proportion
    - Same exact fabric type and texture
-   - Same exact neckline, sleeves, hemline, and details
-   Do NOT invent, paraphrase, or stylize the garment. If the reference
-   shows a pink knitted top with scalloped neckline, render a pink
-   knitted top with scalloped neckline — not "something similar".
+   - Same exact neckline, sleeves, hemline, details
+   Do NOT invent, paraphrase, or stylize. Match references exactly.
 
-3. BODY — ${bodyTypeLine}
+3. SAME BACKGROUND IN ALL 4 PANELS — clean, minimal, premium fashion
+   studio. Soft cream / neutral seamless backdrop (around #F1EBDD).
+   Even diffused lighting. No props, no extra people, no outdoor
+   scenery, no random objects. Identical lighting and backdrop in
+   every panel.
 
-4. POSE & FRAMING — Person standing straight, facing the camera,
-   natural relaxed pose, arms slightly away from the body, full body
-   visible head to toe, 3:4 portrait aspect ratio.
+4. BODY — ${bodyTypeLine}
 
-═══ OUTFIT BREAKDOWN (each item has a reference image below) ═══
+═══ OUTFIT BREAKDOWN (use the reference product images as ground truth) ═══
 ${slots.join("\n")}
 
 ═══ VISUAL STYLE ═══
-- Clean editorial fashion photography
-- Neutral light-cream studio background (#F1EBDD), seamless
-- Soft, even, natural lighting; no harsh shadows
-- High resolution, photo-real, magazine-quality
-- The outfit must be the visual hero — proportionally accurate
+- Premium Instagram editorial fashion campaign aesthetic
+- Pinterest-ready style board feel
+- High resolution, photo-real, magazine-cover quality
+- Soft, even, natural studio lighting
+- Outfit is the visual hero in every panel
+- Identity is preserved exactly from the input photo
+
+═══ BRANDING ═══
+In the bottom-right corner of PANEL 4 ONLY, add a small subtle text
+mark: "Styled with Toastie" in clean italic serif. Keep it tasteful,
+elegant, and low-key — small enough that it never covers more than
+~8% of one panel. Do not add the mark to any other panel.
 
 ═══ STRICTLY FORBIDDEN ═══
-- NO text, watermarks, logos (other than what's on the reference products), captions, or labels
-- NO additional people, hands, props, or background objects
-- NO altering the person's identity
-- NO generic/stock clothing — only what the reference images show
-- NO multiple poses or collage; output ONE single image only
+- DIFFERENT people across panels (must be the SAME person every time)
+- DIFFERENT outfits across panels (must be the SAME outfit every time)
+- DIFFERENT backgrounds (must be the SAME minimal studio)
+- Panel labels, numbers, captions, frames, or text other than the
+  small "Styled with Toastie" mark on Panel 4
+- Watermarks, logos, graphics other than what is printed on the
+  actual reference products
+- Outdoor scenes, busy props, additional people, pets
+- Output must be ONE SINGLE image — the 2×2 collage IS the output
 `.trim();
 }
 
@@ -453,6 +504,10 @@ export async function POST(req: NextRequest) {
           // Lower temperature → stay closer to reference products,
           // less creative drift on fabric, color, and silhouette.
           temperature: 0.35,
+          // Portrait 3:4 (1080×1350 Instagram-portrait sweet spot).
+          // Gemini honours this hint for image-capable models; the
+          // exact pixel dimensions depend on the model.
+          imageConfig: { aspectRatio: "3:4" },
         },
       }),
     });
