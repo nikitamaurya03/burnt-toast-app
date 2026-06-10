@@ -647,6 +647,7 @@ export async function POST(req: NextRequest) {
       cartSkus = [],
       action,
       action_params,
+      toastieProfile,
     }: {
       message: string;
       history: AnthropicMessage[];
@@ -654,6 +655,18 @@ export async function POST(req: NextRequest) {
       cartSkus?: string[];
       action?: string;
       action_params?: Record<string, unknown>;
+      toastieProfile?: {
+        name?: string;
+        styleIdentity?: string;
+        colorPersonality?: string;
+        stylingDirection?: string;
+        preferredStyles?: string[];
+        favoriteColors?: string[];
+        skinTone?: string;
+        bodyShape?: string;
+        stylingNeeds?: string[];
+        tags?: string[];
+      };
     } = body;
 
     // ── INPUT VALIDATION — prevent abuse / cost bombs ──
@@ -1004,6 +1017,38 @@ export async function POST(req: NextRequest) {
     ];
     if (sessionContext) {
       systemBlocks.push({ type: "text", text: sessionContext });
+    }
+
+    // ─── Inject Toastie user style profile so Claude personalizes responses ───
+    if (toastieProfile?.name) {
+      const profileLines: string[] = [
+        "═══════════════════════════════════════════════════════════════",
+        "USER STYLE PROFILE (from onboarding — use this to personalize)",
+        "═══════════════════════════════════════════════════════════════",
+        `User Name: ${toastieProfile.name}`,
+      ];
+      if (toastieProfile.styleIdentity)    profileLines.push(`Style Identity: ${toastieProfile.styleIdentity}`);
+      if (toastieProfile.colorPersonality) profileLines.push(`Color Personality: ${toastieProfile.colorPersonality}`);
+      if (toastieProfile.stylingDirection) profileLines.push(`Styling Direction: ${toastieProfile.stylingDirection}`);
+      if (toastieProfile.preferredStyles?.length)
+        profileLines.push(`Preferred Styles: ${toastieProfile.preferredStyles.join(", ")}`);
+      if (toastieProfile.favoriteColors?.length)
+        profileLines.push(`Favorite Colors: ${toastieProfile.favoriteColors.join(", ")}`);
+      if (toastieProfile.skinTone)         profileLines.push(`Skin Tone: ${toastieProfile.skinTone}`);
+      if (toastieProfile.bodyShape && toastieProfile.bodyShape !== "not-sure")
+        profileLines.push(`Body Shape: ${toastieProfile.bodyShape}`);
+      if (toastieProfile.stylingNeeds?.length)
+        profileLines.push(`Styling Needs: ${toastieProfile.stylingNeeds.join(", ")}`);
+      if (toastieProfile.tags?.length)
+        profileLines.push(`Style Tags: ${toastieProfile.tags.join(", ")}`);
+      profileLines.push("");
+      profileLines.push("PERSONALIZATION RULES:");
+      profileLines.push(`- Address the user as "${toastieProfile.name}" naturally (not every message).`);
+      profileLines.push("- Factor their preferred styles, colors, skin tone, and body shape into outfit recommendations.");
+      profileLines.push("- Prioritize their styling needs (e.g., vacation, party, everyday) when suggesting occasions.");
+      profileLines.push("- Never ask for information that's already in this profile.");
+      profileLines.push("═══════════════════════════════════════════════════════════════");
+      systemBlocks.push({ type: "text", text: profileLines.join("\n") });
     }
 
     // Helper: single call to Claude (used twice for empty-response retry)

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Search, User, Heart, ShoppingBag, Menu, X, ChevronDown } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
+import { useToastieUser } from "@/context/ToastieUserContext";
 
 const HIDE_ON = ["/chat"];
 
@@ -27,6 +28,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const { totalItems } = useCart();
   const { totalItems: wishlistCount } = useWishlist();
+  const { user: toastieUser } = useToastieUser();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [womenOpen, setWomenOpen] = useState(false);
@@ -183,11 +185,26 @@ export default function Navbar() {
             <Search size={18} stroke="var(--ink)" strokeWidth={1.5} />
           </Link>
           <Link
-            href="/chat"
+            href={toastieUser?.onboardingCompleted ? "/profile" : "/chat"}
             className="hidden sm:flex p-2 rounded-full transition-colors hover:bg-[var(--cream-deep)]"
-            aria-label="Ask Toastie"
+            aria-label={toastieUser?.onboardingCompleted ? "Style Profile" : "Ask Toastie"}
           >
-            <User size={18} stroke="var(--ink)" strokeWidth={1.5} />
+            {toastieUser?.onboardingCompleted ? (
+              <span
+                className="flex items-center justify-center rounded-full"
+                style={{
+                  width: 20, height: 20,
+                  background: "var(--sage)",
+                  fontFamily: "var(--font-brand)",
+                  fontSize: 11, color: "var(--ink)",
+                  lineHeight: 1,
+                }}
+              >
+                {toastieUser.name.charAt(0).toUpperCase()}
+              </span>
+            ) : (
+              <User size={18} stroke="var(--ink)" strokeWidth={1.5} />
+            )}
           </Link>
           <Link href="/wishlist" className="relative p-2 rounded-full transition-colors hover:bg-[var(--cream-deep)]">
             <Heart
@@ -294,6 +311,32 @@ export default function Navbar() {
                 Cart
               </Link>
             </li>
+            {toastieUser?.onboardingCompleted && (
+              <>
+                <li className="w-12 border-t mt-1" style={{ borderColor: "var(--line)" }} />
+                <li>
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2"
+                    style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ink)" }}
+                  >
+                    <span
+                      className="flex items-center justify-center rounded-full"
+                      style={{
+                        width: 22, height: 22,
+                        background: "var(--sage)",
+                        fontFamily: "var(--font-brand)",
+                        fontSize: 12, color: "var(--ink)",
+                      }}
+                    >
+                      {toastieUser.name.charAt(0).toUpperCase()}
+                    </span>
+                    Style Profile
+                  </Link>
+                </li>
+              </>
+            )}
           </ul>
         </div>
       )}

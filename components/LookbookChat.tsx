@@ -12,6 +12,7 @@ import {
 import VirtualTryOnModal, { TryOnOutfitMap, TryOnEntry } from "./VirtualTryOnModal";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
+import { useToastieUser } from "@/context/ToastieUserContext";
 import { products as allProducts } from "@/data/products";
 import { catalogueProducts } from "@/data/catalogue";
 import { Product } from "@/types";
@@ -2020,6 +2021,7 @@ export default function LookbookChat() {
   const lastUploadedRef = useRef<{ base64: string; mime: string; preview: string } | null>(null);
   const { totalItems: cartCount, items: cartItems } = useCart();
   const { totalItems: wishCount } = useWishlist();
+  const { user: toastieUser } = useToastieUser();
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2397,6 +2399,21 @@ export default function LookbookChat() {
           session,
           cartSkus,
           ...(opts?.action ? { action: opts.action, action_params: opts.actionParams } : {}),
+          // Pass Toastie user profile for AI personalization
+          ...(toastieUser?.onboardingCompleted ? {
+            toastieProfile: {
+              name: toastieUser.name,
+              styleIdentity: toastieUser.styleIdentity,
+              colorPersonality: toastieUser.colorPersonality,
+              stylingDirection: toastieUser.stylingDirection,
+              preferredStyles: toastieUser.preferredStyles,
+              favoriteColors: toastieUser.favoriteColors,
+              skinTone: toastieUser.skinTone,
+              bodyShape: toastieUser.bodyShape,
+              stylingNeeds: toastieUser.stylingNeeds,
+              tags: toastieUser.tags,
+            },
+          } : {}),
         }),
       });
 
@@ -2464,13 +2481,15 @@ export default function LookbookChat() {
           </Link>
         </div>
 
-        {/* Center — Ask Toastie title */}
+        {/* Center — Ask Toastie title + welcome back */}
         <div className="bt-chat-header-center" style={{ textAlign: "center", flex: 1 }}>
           <div className="bt-chat-header-title" style={{ color: TEXT, fontWeight: 600, fontSize: 18, fontFamily: FONT_DISPLAY, lineHeight: 1.1 }}>
             Ask Toastie
           </div>
           <div className="bt-chat-header-sub" style={{ color: MUTED, fontSize: 9, letterSpacing: 3, fontFamily: FONT_MONO, marginTop: 2, fontWeight: 500 }}>
-            YOUR PERSONAL AI STYLIST
+            {toastieUser?.onboardingCompleted
+              ? `WELCOME BACK, ${toastieUser.name.toUpperCase()}`
+              : "YOUR PERSONAL AI STYLIST"}
           </div>
         </div>
 
@@ -2513,14 +2532,28 @@ export default function LookbookChat() {
           </nav>
 
           {/* Profile avatar */}
-          <div style={{
-            width: 32, height: 32, borderRadius: "50%",
-            background: CARD, border: `1px solid ${BORDER}`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer",
-          }}>
-            <User size={15} stroke={TEXT} />
-          </div>
+          <Link
+            href={toastieUser?.onboardingCompleted ? "/profile" : "#"}
+            style={{
+              width: 32, height: 32, borderRadius: "50%",
+              background: toastieUser?.onboardingCompleted ? SAGE : CARD,
+              border: `1px solid ${toastieUser?.onboardingCompleted ? SAGE_DEEP : BORDER}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", textDecoration: "none",
+            }}
+            aria-label="Style Profile"
+            title={toastieUser?.onboardingCompleted ? `${toastieUser.name}'s Style Profile` : "Profile"}
+          >
+            {toastieUser?.onboardingCompleted ? (
+              <span style={{
+                fontFamily: FONT_BRAND, fontSize: 14, color: TEXT, lineHeight: 1,
+              }}>
+                {toastieUser.name.charAt(0).toUpperCase()}
+              </span>
+            ) : (
+              <User size={15} stroke={TEXT} />
+            )}
+          </Link>
         </div>
       </header>
 
