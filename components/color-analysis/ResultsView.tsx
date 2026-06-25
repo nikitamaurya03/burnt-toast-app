@@ -230,8 +230,11 @@ export default function ResultsView({
         <Section title="Color Comparison" icon={<Scissors size={18} style={{ color: "var(--sage-deep)" }} />}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {(["best_match", "neutral", "avoid"] as const).map((key) => {
-              const item = clothing_comparison[key];
-              if (!item?.color) return null;
+              const raw = clothing_comparison[key];
+              if (!raw) return null;
+              const color = raw.color && raw.color.hex ? raw.color : raw as unknown as ColorEntry;
+              if (!color?.hex) return null;
+              const explanation = raw.explanation || "";
               const labels = { best_match: "Best Match", neutral: "Safe Neutral", avoid: "Avoid" };
               const accents = { best_match: "var(--sage)", neutral: "var(--ash)", avoid: "#dc2626" };
               return (
@@ -240,10 +243,10 @@ export default function ResultsView({
                     {labels[key].toUpperCase()}
                   </p>
                   <div className="flex justify-center mb-3">
-                    <ColorSwatch color={item.color} size="lg" />
+                    <ColorSwatch color={color} size="lg" />
                   </div>
                   <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ash)", lineHeight: 1.5 }}>
-                    {item.explanation}
+                    {explanation}
                   </p>
                 </div>
               );
