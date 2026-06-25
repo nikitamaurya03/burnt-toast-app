@@ -55,10 +55,11 @@ export default function HomePage() {
               {
                 title: "Styling",
                 links: [
-                  { label: "Ask Toastie",   href: "/chat" },
-                  { label: "Y2K Looks",     href: "/chat" },
-                  { label: "Campus Vibes",  href: "/chat" },
-                  { label: "Night Out",     href: "/chat" },
+                  { label: "Ask Toastie",        href: "/chat" },
+                  { label: "Color Analysis",     href: "/color-analysis" },
+                  { label: "Y2K Looks",          href: "/chat" },
+                  { label: "Campus Vibes",       href: "/chat" },
+                  { label: "Night Out",          href: "/chat" },
                 ],
               },
               {

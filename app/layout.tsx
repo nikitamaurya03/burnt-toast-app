@@ -3,6 +3,7 @@ import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { ToastieUserProvider } from "@/context/ToastieUserContext";
+import { ColorAnalysisProvider } from "@/context/ColorAnalysisContext";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
@@ -20,12 +21,14 @@ export default function RootLayout({
     <html lang="en" data-scroll-behavior="smooth">
       <body className="antialiased" style={{ background: "var(--cream)", color: "var(--ink)" }}>
         <ToastieUserProvider>
-          <CartProvider>
-            <WishlistProvider>
-              <Navbar />
-              <main>{children}</main>
-            </WishlistProvider>
-          </CartProvider>
+          <ColorAnalysisProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <Navbar />
+                <main>{children}</main>
+              </WishlistProvider>
+            </CartProvider>
+          </ColorAnalysisProvider>
         </ToastieUserProvider>
       </body>
     </html>
