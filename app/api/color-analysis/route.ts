@@ -386,9 +386,9 @@ export async function POST(req: NextRequest) {
 
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error("[/api/color-analysis] error:", msg);
+    const fullError = error instanceof Error ? error.stack ?? msg : msg;
+    console.error("[/api/color-analysis] error:", fullError);
 
-    // Surface Anthropic errors with a helpful message, hide internal details from clients.
     if (msg.includes("Could not process image") || msg.includes("Invalid image")) {
       return NextResponse.json(
         { error: "The image could not be processed. Please upload a clear, well-lit photo of your face." },
@@ -396,8 +396,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (msg.includes("rate") || msg.includes("429")) {
+      return NextResponse.json(
+        { error: "AI service is busy. Please wait a moment and try again." },
+        { status: 429 },
+      );
+    }
+
+    if (msg.includes("timeout") || msg.includes("ETIMEDOUT") || msg.includes("ECONNRESET")) {
+      return NextResponse.json(
+        { error: "The analysis timed out. Please try again with a smaller photo." },
+        { status: 504 },
+      );
+    }
+
     return NextResponse.json(
-      { error: "An unexpected error occurred. Please try again in a moment." },
+      { error: `Analysis failed: ${msg.slice(0, 200)}` },
       { status: 500 },
     );
   }
