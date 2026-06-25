@@ -116,6 +116,18 @@ export default function Hero() {
               <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
+              href="/color-analysis"
+              className="group flex items-center gap-3 px-7 py-3.5 rounded-full transition-all"
+              style={{
+                background: "var(--sage)", color: "var(--ink)",
+                fontFamily: "var(--font-mono)", fontSize: 11,
+                letterSpacing: 2, fontWeight: 500,
+              }}
+            >
+              COLOR ANALYSIS
+              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <Link
               href="/#collection"
               className="flex items-center px-7 py-3.5 rounded-full transition-all"
               style={{
