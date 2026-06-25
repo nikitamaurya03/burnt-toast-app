@@ -345,7 +345,7 @@ export async function POST(req: NextRequest) {
        ════════════════════════════════════════════════════════ */
     const response = await client.messages.create({
       model: "claude-sonnet-4-5",
-      max_tokens: 4000,
+      max_tokens: 8192,
       messages: [{
         role: "user",
         content: [
@@ -358,6 +358,10 @@ export async function POST(req: NextRequest) {
       }],
     });
 
+    if (response.stop_reason === "max_tokens") {
+      console.error("[/api/color-analysis] analyze: response truncated (hit max_tokens)");
+    }
+
     const rawText = response.content
       .filter(b => b.type === "text")
       .map(b => (b as { type: "text"; text: string }).text)
@@ -365,15 +369,23 @@ export async function POST(req: NextRequest) {
 
     const jsonStr = extractJson(rawText);
     if (!jsonStr) {
-      console.error("[/api/color-analysis] analyze: failed to extract JSON:", rawText.slice(0, 300));
+      console.error("[/api/color-analysis] analyze: failed to extract JSON:", rawText.slice(0, 500));
       return NextResponse.json(
         { error: "Could not extract analysis from AI response. Please try again." },
         { status: 502 },
       );
     }
 
-    /* Parse the raw AI result (everything except id and created_at) */
-    const partial = JSON.parse(jsonStr) as Omit<ColorAnalysisResult, "id" | "created_at">;
+    let partial: Omit<ColorAnalysisResult, "id" | "created_at">;
+    try {
+      partial = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      console.error("[/api/color-analysis] JSON parse failed:", (parseErr as Error).message, "| raw tail:", rawText.slice(-200));
+      return NextResponse.json(
+        { error: "The AI response was incomplete. Please try again." },
+        { status: 502 },
+      );
+    }
 
     /* Add server-side fields */
     const result: ColorAnalysisResult = {
