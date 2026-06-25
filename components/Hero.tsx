@@ -52,7 +52,7 @@ export default function Hero() {
 
   return (
     <section
-      className="relative min-h-screen flex items-center overflow-hidden pt-20 pb-12 px-4 sm:px-8"
+      className="relative min-h-screen flex items-center overflow-hidden pt-16 md:pt-4 pb-12 px-4 sm:px-8"
       style={{ background: "var(--cream)" }}
     >
       <div className="max-w-7xl mx-auto w-full grid md:grid-cols-2 gap-10 md:gap-16 items-center">

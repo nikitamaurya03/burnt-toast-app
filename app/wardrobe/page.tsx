@@ -47,7 +47,7 @@ export default function WardrobePage() {
   }
 
   return (
-    <div className="min-h-screen pt-20 pb-24" style={{ background: "var(--cream)" }}>
+    <div className="min-h-screen pt-16 md:pt-6 pb-24" style={{ background: "var(--cream)" }}>
       <div className="max-w-6xl mx-auto px-5 sm:px-8">
         {/* Header */}
         <div className="text-center mb-8">

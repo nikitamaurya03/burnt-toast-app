@@ -280,6 +280,12 @@ body {
 
 .animate-slide-up { animation: slideUp 0.45s cubic-bezier(0.32, 0.72, 0, 1); }
 .animate-fade-in  { animation: fadeIn 0.6s ease-out; }
+.animate-slide-right { animation: slideRight 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
+
+@keyframes slideRight {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
 
 /* ── Editorial polaroid card — used in hero collage ───────────── */
 .polaroid {

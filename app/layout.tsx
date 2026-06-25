@@ -29,7 +29,7 @@ export default function RootLayout({
                 <CartProvider>
                   <WishlistProvider>
                     <Navbar />
-                    <main>{children}</main>
+                    <main className="md:ml-[220px]">{children}</main>
                   </WishlistProvider>
                 </CartProvider>
               </LookbookProvider>

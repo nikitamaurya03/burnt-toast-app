@@ -1,241 +1,253 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { ShoppingBag, Heart, Menu, X, User } from "lucide-react";
-import { useCart } from "@/context/CartContext";
+import {
+  Home, User, ShoppingBag, Heart, Palette, BookImage,
+  Menu, X, MessageCircle, ChevronRight,
+} from "lucide-react";
 import { useWishlist } from "@/context/WishlistContext";
 import { useToastieUser } from "@/context/ToastieUserContext";
-import clsx from "clsx";
 
-const links = [
-  { href: "/",         label: "Home" },
-  { href: "/chat",     label: "Ask Toastie" },
-  { href: "/wardrobe", label: "Wardrobe" },
-  { href: "/lookbook", label: "Lookbook" },
-  { href: "/wishlist", label: "Wishlist" },
-  { href: "/cart",     label: "Cart" },
+const NAV_ITEMS = [
+  { href: "/",                label: "Home",           icon: Home },
+  { href: "/profile",         label: "Style Profile",  icon: User },
+  { href: "/wardrobe",        label: "Wardrobe",       icon: ShoppingBag },
+  { href: "/lookbook",        label: "Lookbook",       icon: BookImage },
+  { href: "/color-analysis",  label: "Color Analysis", icon: Palette },
+  { href: "/wishlist",        label: "Favorites",      icon: Heart },
 ];
 
-/* Hide on pages that have their own header */
 const HIDE_ON = ["/chat"];
 
 export default function Navbar() {
-  const pathname  = usePathname();
-  const { totalItems } = useCart();
+  const pathname = usePathname();
   const { totalItems: wishlistCount } = useWishlist();
   const { user: toastieUser } = useToastieUser();
-  const [scrolled,    setScrolled]    = useState(false);
-  const [mobileOpen,  setMobileOpen]  = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  /* Don't render on chat or product detail pages */
   if (HIDE_ON.some((p) => pathname === p) || pathname.startsWith("/product/")) {
     return null;
   }
 
   return (
-    <header
-      className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
-      style={{
-        background: "var(--cream)",
-        borderBottom: scrolled ? "1px solid var(--line)" : "1px solid transparent",
-        padding: scrolled ? "10px 0" : "16px 0",
-      }}
-    >
-      <nav className="max-w-7xl mx-auto px-5 sm:px-8 flex items-center justify-between">
+    <>
+      {/* ── Desktop Sidebar ── */}
+      <aside
+        className="hidden md:flex fixed top-0 left-0 h-screen w-[220px] flex-col z-50"
+        style={{ background: "var(--cream)", borderRight: "1px solid var(--line)" }}
+      >
+        {/* Logo */}
+        <div className="px-5 pt-6 pb-4" style={{ borderBottom: "1px solid var(--line)" }}>
+          <Link href="/" style={{ textDecoration: "none" }}>
+            <Image
+              src="https://burnt-toast.com/cdn/shop/files/Logo-8_1.png"
+              alt="Burnt Toast"
+              width={110}
+              height={36}
+              className="h-8 w-auto object-contain"
+              style={{ width: "auto" }}
+              priority
+              unoptimized
+            />
+          </Link>
+          <div className="flex items-center gap-1.5 mt-3">
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--sage)" }} />
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--sage)", letterSpacing: 1, fontWeight: 500 }}>
+              AI STYLIST LIVE
+            </span>
+          </div>
+        </div>
 
-        {/* Brand mark — official Burnt Toast logo */}
-        <Link href="/" className="flex items-center" style={{ textDecoration: "none" }}>
+        {/* Nav Links */}
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+            const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+            return (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group"
+                style={{
+                  background: active ? "var(--ink)" : "transparent",
+                  color: active ? "var(--cream)" : "var(--ash)",
+                  textDecoration: "none",
+                }}
+              >
+                <div className="relative">
+                  <Icon size={17} strokeWidth={active ? 2 : 1.5} />
+                  {href === "/wishlist" && wishlistCount > 0 && (
+                    <span
+                      className="absolute -top-1.5 -right-1.5 flex items-center justify-center"
+                      style={{
+                        width: 14, height: 14, borderRadius: "50%",
+                        background: "var(--burnt)", color: "#fff",
+                        fontFamily: "var(--font-mono)", fontSize: 7, fontWeight: 700,
+                      }}
+                    >
+                      {wishlistCount > 9 ? "9+" : wishlistCount}
+                    </span>
+                  )}
+                </div>
+                <span style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  letterSpacing: 1.5,
+                  fontWeight: active ? 600 : 500,
+                  textTransform: "uppercase",
+                }}>
+                  {label}
+                </span>
+                {active && <ChevronRight size={12} className="ml-auto" />}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Bottom — Ask Toastie CTA + Profile */}
+        <div className="px-3 pb-5 space-y-3" style={{ borderTop: "1px solid var(--line)", paddingTop: 16 }}>
+          <Link
+            href="/chat"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all hover:opacity-80"
+            style={{
+              background: "var(--sage)", color: "var(--ink)",
+              textDecoration: "none",
+            }}
+          >
+            <MessageCircle size={16} strokeWidth={1.5} />
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: 1.5, fontWeight: 600, textTransform: "uppercase" }}>
+              Ask Toastie
+            </span>
+          </Link>
+
+          {toastieUser?.onboardingCompleted && (
+            <div className="flex items-center gap-2.5 px-3">
+              <span
+                className="flex items-center justify-center rounded-full flex-shrink-0"
+                style={{
+                  width: 28, height: 28,
+                  background: "var(--sage)",
+                  fontFamily: "var(--font-brand)",
+                  fontSize: 13, color: "var(--ink)",
+                }}
+              >
+                {toastieUser.name.charAt(0).toUpperCase()}
+              </span>
+              <div>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ink)", fontWeight: 500 }}>
+                  {toastieUser.name}
+                </div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--ash)", letterSpacing: 1 }}>
+                  {toastieUser.stylePersonality || "Style Explorer"}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* ── Mobile Top Bar ── */}
+      <header
+        className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3"
+        style={{ background: "var(--cream)", borderBottom: "1px solid var(--line)" }}
+      >
+        <Link href="/" style={{ textDecoration: "none" }}>
           <Image
             src="https://burnt-toast.com/cdn/shop/files/Logo-8_1.png"
             alt="Burnt Toast"
-            width={110}
-            height={36}
-            className="h-8 sm:h-9 w-auto object-contain"
+            width={90}
+            height={30}
+            className="h-7 w-auto object-contain"
             style={{ width: "auto" }}
             priority
             unoptimized
           />
         </Link>
-
-        {/* Center title (mobile-hidden) — links to chatbot */}
-        <Link href="/chat" className="hidden md:flex flex-col items-center" style={{ textDecoration: "none", cursor: "pointer" }}>
-          <span style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 18, color: "var(--ink)", lineHeight: 1,
-          }}>
-            Ask Toastie
-          </span>
-          <span style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 9, color: "var(--ash)",
-            letterSpacing: 3, marginTop: 4, fontWeight: 500,
-          }}>
-            YOUR PERSONAL AI STYLIST
-          </span>
-        </Link>
-
-        {/* Right cluster — links + live + actions */}
-        <div className="flex items-center gap-3 md:gap-5">
-
-          {/* Desktop nav */}
-          <ul className="hidden md:flex items-center gap-6 mr-3">
-            {links.filter(l => l.href !== "/chat").map(({ href, label }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 10, letterSpacing: 2, fontWeight: 500,
-                    color: pathname === href ? "var(--ink)" : "var(--ash)",
-                    textTransform: "uppercase",
-                    textDecoration: pathname === href ? "underline" : "none",
-                    textUnderlineOffset: 4,
-                  }}
-                  className="hover:opacity-70 transition-opacity"
-                >
-                  {label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-
-          {/* LIVE dot */}
-          <div className="hidden sm:flex items-center gap-1.5">
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--sage)" }} />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--sage)", letterSpacing: 1, fontWeight: 500 }}>LIVE</span>
-          </div>
-
-          {/* Profile icon */}
-          <Link
-            href={toastieUser?.onboardingCompleted ? "/profile" : "/chat"}
-            className="relative p-2 rounded-full transition-colors hover:bg-[var(--cream-deep)]"
-            aria-label={toastieUser?.onboardingCompleted ? "Style Profile" : "Ask Toastie"}
-          >
-            {toastieUser?.onboardingCompleted ? (
-              <span
-                className="flex items-center justify-center rounded-full"
-                style={{
-                  width: 20, height: 20,
-                  background: "var(--sage)",
-                  fontFamily: "var(--font-brand)",
-                  fontSize: 11, color: "var(--ink)",
-                  lineHeight: 1,
-                }}
-              >
-                {toastieUser.name.charAt(0).toUpperCase()}
-              </span>
-            ) : (
-              <User size={18} stroke="var(--ink)" strokeWidth={1.5} />
-            )}
-          </Link>
-
-          <Link href="/wishlist" className="relative p-2 rounded-full transition-colors hover:bg-[var(--cream-deep)]">
-            <Heart size={18} fill={wishlistCount > 0 ? "var(--burnt)" : "none"} stroke="var(--ink)" />
-            {wishlistCount > 0 && (
-              <span style={{
-                position: "absolute", top: -2, right: -2,
-                background: "var(--burnt)", color: "#fff",
-                fontFamily: "var(--font-mono)", fontSize: 8, fontWeight: 700,
-                borderRadius: "50%", width: 14, height: 14,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                {wishlistCount > 9 ? "9+" : wishlistCount}
-              </span>
-            )}
-          </Link>
-
-          <Link href="/cart" className="relative p-2 rounded-full transition-colors hover:bg-[var(--cream-deep)]">
-            <ShoppingBag size={18} stroke="var(--ink)" />
-            {totalItems > 0 && (
-              <span style={{
-                position: "absolute", top: -2, right: -2,
-                background: "var(--ink)", color: "var(--cream)",
-                fontFamily: "var(--font-mono)", fontSize: 8, fontWeight: 700,
-                borderRadius: "50%", width: 14, height: 14,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                {totalItems > 9 ? "9+" : totalItems}
-              </span>
-            )}
-          </Link>
-
-          <button
-            onClick={() => setMobileOpen((o) => !o)}
-            className="md:hidden p-2 rounded-full transition-colors hover:bg-[var(--cream-deep)]"
-            aria-label="Menu"
-          >
-            {mobileOpen
-              ? <X size={20} stroke="var(--ink)" />
-              : <Menu size={20} stroke="var(--ink)" />}
-          </button>
-        </div>
-      </nav>
-
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <div
-          className="md:hidden absolute top-full left-0 right-0 py-6 animate-slide-up"
-          style={{ background: "var(--cream)", borderBottom: "1px solid var(--line)" }}
+        <button
+          onClick={() => setMobileOpen(o => !o)}
+          className="p-2 rounded-full hover:bg-[var(--cream-deep)]"
+          aria-label="Menu"
         >
-          <ul className="flex flex-col items-center gap-5">
-            {links.map(({ href, label }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  onClick={() => setMobileOpen(false)}
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12, letterSpacing: 2,
-                    color: pathname === href ? "var(--ink)" : "var(--ash)",
-                    fontWeight: pathname === href ? 700 : 500,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {label}
-                </Link>
-              </li>
-            ))}
-            {toastieUser?.onboardingCompleted && (
-              <li>
-                <Link
-                  href="/profile"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2"
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12, letterSpacing: 2,
-                    color: "var(--ash)",
-                    fontWeight: 500,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  <span
-                    className="flex items-center justify-center rounded-full"
+          {mobileOpen ? <X size={20} stroke="var(--ink)" /> : <Menu size={20} stroke="var(--ink)" />}
+        </button>
+      </header>
+
+      {/* ── Mobile Drawer ── */}
+      {mobileOpen && (
+        <>
+          <div
+            className="md:hidden fixed inset-0 z-[60]"
+            style={{ background: "rgba(0,0,0,0.3)" }}
+            onClick={() => setMobileOpen(false)}
+          />
+          <div
+            className="md:hidden fixed top-0 left-0 h-full w-[260px] z-[70] flex flex-col animate-slide-right"
+            style={{ background: "var(--cream)", borderRight: "1px solid var(--line)" }}
+          >
+            {/* Mobile Logo */}
+            <div className="px-5 pt-5 pb-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--line)" }}>
+              <Image
+                src="https://burnt-toast.com/cdn/shop/files/Logo-8_1.png"
+                alt="Burnt Toast"
+                width={90}
+                height={30}
+                className="h-7 w-auto object-contain"
+                style={{ width: "auto" }}
+                unoptimized
+              />
+              <button onClick={() => setMobileOpen(false)} className="p-1 rounded-full hover:bg-[var(--cream-deep)]">
+                <X size={18} stroke="var(--ink)" />
+              </button>
+            </div>
+
+            {/* Mobile Nav */}
+            <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+              {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+                const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-3 py-3 rounded-xl transition-all"
                     style={{
-                      width: 20, height: 20,
-                      background: "var(--sage)",
-                      fontFamily: "var(--font-brand)",
-                      fontSize: 11, color: "var(--ink)",
+                      background: active ? "var(--ink)" : "transparent",
+                      color: active ? "var(--cream)" : "var(--ash)",
+                      textDecoration: "none",
                     }}
                   >
-                    {toastieUser.name.charAt(0).toUpperCase()}
-                  </span>
-                  Profile
-                </Link>
-              </li>
-            )}
-          </ul>
-        </div>
+                    <Icon size={18} strokeWidth={active ? 2 : 1.5} />
+                    <span style={{
+                      fontFamily: "var(--font-mono)", fontSize: 12,
+                      letterSpacing: 1.5, fontWeight: active ? 600 : 500,
+                      textTransform: "uppercase",
+                    }}>
+                      {label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            {/* Mobile Bottom */}
+            <div className="px-3 pb-6 space-y-3" style={{ borderTop: "1px solid var(--line)", paddingTop: 16 }}>
+              <Link
+                href="/chat"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-2.5 px-3 py-3 rounded-xl transition-all"
+                style={{ background: "var(--sage)", color: "var(--ink)", textDecoration: "none" }}
+              >
+                <MessageCircle size={18} strokeWidth={1.5} />
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: 1.5, fontWeight: 600, textTransform: "uppercase" }}>
+                  Ask Toastie
+                </span>
+              </Link>
+            </div>
+          </div>
+        </>
       )}
-    </header>
+    </>
   );
 }
