@@ -13,6 +13,8 @@ import clsx from "clsx";
 const links = [
   { href: "/",         label: "Home" },
   { href: "/chat",     label: "Ask Toastie" },
+  { href: "/wardrobe", label: "Wardrobe" },
+  { href: "/lookbook", label: "Lookbook" },
   { href: "/wishlist", label: "Wishlist" },
   { href: "/cart",     label: "Cart" },
 ];

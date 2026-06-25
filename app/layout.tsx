@@ -4,6 +4,8 @@ import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { ToastieUserProvider } from "@/context/ToastieUserContext";
 import { ColorAnalysisProvider } from "@/context/ColorAnalysisContext";
+import { WardrobeProvider } from "@/context/WardrobeContext";
+import { LookbookProvider } from "@/context/LookbookContext";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
@@ -22,12 +24,16 @@ export default function RootLayout({
       <body className="antialiased" style={{ background: "var(--cream)", color: "var(--ink)" }}>
         <ToastieUserProvider>
           <ColorAnalysisProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <Navbar />
-                <main>{children}</main>
-              </WishlistProvider>
-            </CartProvider>
+            <WardrobeProvider>
+              <LookbookProvider>
+                <CartProvider>
+                  <WishlistProvider>
+                    <Navbar />
+                    <main>{children}</main>
+                  </WishlistProvider>
+                </CartProvider>
+              </LookbookProvider>
+            </WardrobeProvider>
           </ColorAnalysisProvider>
         </ToastieUserProvider>
       </body>

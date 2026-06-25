@@ -11,6 +11,9 @@
     },
     "app/api/color-analysis/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/wardrobe-tag/route.ts": {
+      "maxDuration": 30
     }
   },
   "headers": [

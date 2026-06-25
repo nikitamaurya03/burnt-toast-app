@@ -128,8 +128,21 @@ export default function Hero() {
               <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link
-              href="/#collection"
-              className="flex items-center px-7 py-3.5 rounded-full transition-all"
+              href="/wardrobe"
+              className="group flex items-center gap-3 px-7 py-3.5 rounded-full transition-all"
+              style={{
+                background: "var(--cream-deep)", color: "var(--ink)",
+                border: "1px solid var(--line)",
+                fontFamily: "var(--font-mono)", fontSize: 11,
+                letterSpacing: 2, fontWeight: 500,
+              }}
+            >
+              MY WARDROBE
+              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+            <Link
+              href="/lookbook"
+              className="group flex items-center gap-3 px-7 py-3.5 rounded-full transition-all"
               style={{
                 background: "transparent",
                 border: "1px solid var(--ink)", color: "var(--ink)",
@@ -137,7 +150,8 @@ export default function Hero() {
                 letterSpacing: 2, fontWeight: 500,
               }}
             >
-              BROWSE COLLECTION
+              LOOKBOOK
+              <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
         </div>
