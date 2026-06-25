@@ -59,8 +59,12 @@ export default function ColorAnalysisPage() {
       });
 
       if (!anaRes.ok) {
-        const err = await anaRes.json().catch(() => ({ error: "Analysis failed" }));
-        setAnalysisError(err.error || "Something went wrong. Please try again.");
+        if (anaRes.status === 504 || anaRes.status === 408) {
+          setAnalysisError("The analysis took too long. Please try again with a smaller or clearer photo.");
+        } else {
+          const err = await anaRes.json().catch(() => ({ error: "Analysis failed" }));
+          setAnalysisError(err.error || "Something went wrong. Please try again.");
+        }
         setStage("upload");
         return;
       }
